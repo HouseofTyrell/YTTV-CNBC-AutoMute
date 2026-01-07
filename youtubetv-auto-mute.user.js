@@ -58,7 +58,7 @@
     // HUD
     showHUD:false,
     hudAutoOnMute:true,
-    hudAutoDelayMs:10000,
+    hudAutoDelayMs:1000,
     hudFadeMs:250,
     hudSlidePx:8,
 
@@ -104,9 +104,7 @@
     ].join('\n'),
 
     brandTerms: [
-      "charles schwab","schwab","fidelity","td ameritrade","ameritrade","etrade","e-trade",
-      "robinhood","vanguard","capital one","goldman sachs","morgan stanley",
-      "t-mobile","tmobile","verizon","at&t","att","comcast","xfinity",
+      "capital one","t-mobile","tmobile","verizon","at&t","att","comcast","xfinity",
       "liberty mutual","progressive","geico","state farm","allstate",
       "ozempic","mounjaro","trulicity","jardiance","humira","rinvoq","skyrizi",
       "iphone","whopper","medicare","humana","unitedhealthcare","aarp"
