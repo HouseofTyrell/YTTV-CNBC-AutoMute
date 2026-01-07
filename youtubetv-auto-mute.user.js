@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v3.2.1: Tabbed Settings + UI Improvements)
+// @name         YTTV Auto-Mute (v3.3.0: Frequent Words Tracking)
 // @namespace    http://tampermonkey.net/
-// @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, tabbed settings UI, caption visibility toggle (no flicker), floating settings button, logs, and "Flag Incorrect State" button with toggle controls for LLM Review and Frequent Words.
-// @version      3.2.1
+// @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, tabbed settings UI, caption visibility toggle (no flicker), floating settings button, logs, frequent words tracking panel with live analytics, and "Flag Incorrect State" button with toggle controls for LLM Review.
+// @version      3.3.0
 // @match        https://tv.youtube.com/watch/*
 // @match        https://tv.youtube.com/*
 // @grant        GM_setValue
@@ -28,7 +28,7 @@
     if(NS.hudAnimTimer)clearTimeout(NS.hudAnimTimer);
   }catch{}
   Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,routeObserver:null,
-    hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
+    hudEl:null,panelEl:null,freqWordsPanelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
     flagBtn:null,llmReviewBtn:null,freqWordsBtn:null,btnContainer:null,settingsBtn:null,_lastUrl:location.href});
 
   /* ---------- STORAGE SHIMS ---------- */
@@ -169,6 +169,47 @@
   let noCcConsec=0, bottomConsec=0;
   let programQuorumCount=0;   // NEW
   let lastCaptionVisibility=null;  // Track last visibility state to avoid flickering
+
+  /* ---------- FREQUENT WORDS TRACKING ---------- */
+  const WORD_FREQ_KEY='word_frequency';
+  let wordFrequency = kvGet(WORD_FREQ_KEY,{});
+
+  // Common stop words to filter out
+  const STOP_WORDS = new Set([
+    'the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','as',
+    'is','was','are','were','be','been','being','have','has','had','do','does','did','will',
+    'would','could','should','may','might','can','i','you','he','she','it','we','they','them',
+    'their','this','that','these','those','what','which','who','when','where','why','how',
+    'all','each','every','both','few','more','most','some','such','no','nor','not','only',
+    'own','same','so','than','too','very','s','t','just','now','up','out','if','about','than'
+  ]);
+
+  function processWordFrequency(text){
+    if(!S.showFrequentWords || !text) return;
+
+    // Extract words (alphanumeric, 3+ chars)
+    const words = text.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 3 && !STOP_WORDS.has(w) && !/^\d+$/.test(w));
+
+    for(const word of words){
+      wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+    }
+
+    kvSet(WORD_FREQ_KEY, wordFrequency);
+  }
+
+  function getTopWords(limit=50){
+    return Object.entries(wordFrequency)
+      .sort((a,b) => b[1] - a[1])
+      .slice(0, limit);
+  }
+
+  function clearWordFrequency(){
+    wordFrequency = {};
+    kvSet(WORD_FREQ_KEY, {});
+  }
 
   const URL_RE=/\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i;
   const PHONE_RE=/\b(?:\d{3}[-\s.]?\d{3}[-\s.]?\d{4})\b/;
@@ -446,7 +487,11 @@
       const seg=captionSegment.textContent;
       if(seg && seg!==lastCaptionLine){ lastCaptionLine=seg; console.log('[YTTV-Mute] CC:',seg); }
     }
-    if(ccText && ccText!==lastCaptionLine){ lastCaptionLine=ccText; pushCaption(ccText); }
+    if(ccText && ccText!==lastCaptionLine){
+      lastCaptionLine=ccText;
+      pushCaption(ccText);
+      processWordFrequency(ccText);
+    }
 
     if(S.autoDownloadEveryMin>0){
       const since=(Date.now()-lastAutoDlMs)/60000;
@@ -543,7 +588,10 @@
 
   function updateFreqWordsButtonText(btn){
     if(!btn)btn=NS.freqWordsBtn;
-    if(btn)btn.textContent=S.showFrequentWords?'Frequent Words: ON':'Frequent Words: OFF';
+    if(btn){
+      const wordCount = Object.keys(wordFrequency).length;
+      btn.textContent = wordCount > 0 ? `Frequent Words (${wordCount})` : 'View Frequent Words';
+    }
   }
 
   function flagIncorrectState(){
@@ -583,10 +631,7 @@
   }
 
   function toggleFrequentWords(){
-    S.showFrequentWords=!S.showFrequentWords;
-    saveSettings(S);
-    updateFreqWordsButtonText();
-    log('Frequent Words toggled:',S.showFrequentWords?'ON':'OFF');
+    toggleFrequentWordsPanel();
   }
 
   /* ---------- SETTINGS PANEL ---------- */
@@ -730,6 +775,7 @@
             <div style="font-size:12px;color:#bbb;line-height:1.6;">
               • <b>Ctrl+M</b> - Toggle mute/unmute<br>
               • <b>Ctrl+D</b> - Download captions log<br>
+              • <b>Ctrl+W</b> - View frequent words<br>
               • <b>Ctrl+Shift+S</b> - Open/close settings<br>
               • <b>Ctrl+F</b> - Flag incorrect state
             </div>
@@ -840,16 +886,149 @@
   function togglePanel(){ if(!NS.panelEl)buildPanel(); NS.panelEl.style.display=(NS.panelEl.style.display==='none'?'block':'none'); }
   function applySettings(restart=false){ if(NS.hudEl)NS.hudEl.style.transition=`opacity ${S.hudFadeMs|0}ms ease, transform ${S.hudFadeMs|0}ms ease`; if(restart)startLoop(); }
 
+  /* ---------- FREQUENT WORDS PANEL ---------- */
+  function buildFrequentWordsPanel(){
+    if(NS.freqWordsPanelEl)return NS.freqWordsPanelEl;
+    const panel=document.createElement('div'); NS.freqWordsPanelEl=panel;
+    panel.style.cssText=[
+      'position:fixed','left:50%','top:50%','transform:translate(-50%,-50%)','z-index:2147483648',
+      'width:600px','max-width:90vw','max-height:80vh',
+      'background:#111','color:#fff','border:1px solid #333','border-radius:10px',
+      'box-shadow:0 10px 30px rgba(0,0,0,.7)','font:13px/1.4 system-ui,sans-serif',
+      'display:flex','flex-direction:column'
+    ].join(';');
+
+    const btn='background:#1f6feb;border:none;color:#fff;padding:6px 10px;border-radius:7px;cursor:pointer';
+
+    panel.innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;background:#111;">
+        <div style="font-weight:600;font-size:14px;">Frequent Words (Top 50)</div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <button id="freq-toggle-tracking" style="${btn}"></button>
+          <button id="freq-refresh" style="${btn}">Refresh</button>
+          <button id="freq-clear" style="${btn};background:#8b0000">Clear Data</button>
+          <button id="freq-download" style="${btn};background:#2ea043">Download</button>
+          <button id="freq-close" style="${btn};background:#444">Close</button>
+        </div>
+      </div>
+      <div style="padding:12px;overflow:auto;flex:1;" id="freq-words-list"></div>
+    `;
+
+    document.documentElement.appendChild(panel);
+
+    const updateToggleBtn = ()=>{
+      const toggleBtn = panel.querySelector('#freq-toggle-tracking');
+      if(toggleBtn){
+        toggleBtn.textContent = S.showFrequentWords ? 'Tracking: ON' : 'Tracking: OFF';
+        toggleBtn.style.background = S.showFrequentWords ? '#2ea043' : '#6e7681';
+      }
+    };
+
+    const refreshList = ()=>{
+      updateToggleBtn();
+      const topWords = getTopWords(50);
+      const listEl = panel.querySelector('#freq-words-list');
+
+      const statusMsg = S.showFrequentWords
+        ? '<div style="padding:8px;background:#0f3e1e;border:1px solid #2ea043;border-radius:6px;margin-bottom:12px;color:#7ee787;">✓ Word tracking is <strong>enabled</strong>. New captions are being analyzed.</div>'
+        : '<div style="padding:8px;background:#3e1e0f;border:1px solid #f85149;border-radius:6px;margin-bottom:12px;color:#ff7b72;">⚠ Word tracking is <strong>disabled</strong>. Enable it to start analyzing captions.</div>';
+
+      if(topWords.length === 0){
+        listEl.innerHTML = statusMsg + '<div style="text-align:center;padding:40px;color:#888;">No words tracked yet.<br>' + (S.showFrequentWords ? 'Words will appear as captions are processed.' : 'Enable tracking above to start.') + '</div>';
+        return;
+      }
+
+      const totalCount = topWords.reduce((sum, [_, count]) => sum + count, 0);
+
+      listEl.innerHTML = statusMsg + `
+        <div style="margin-bottom:12px;padding:8px;background:#0d1117;border-radius:6px;">
+          <strong>Total words tracked:</strong> ${totalCount.toLocaleString()}<br>
+          <strong>Unique words:</strong> ${Object.keys(wordFrequency).length.toLocaleString()}
+        </div>
+        <div style="display:grid;gap:6px;">
+          ${topWords.map(([word, count], idx) => {
+            const barWidth = Math.max(5, (count / topWords[0][1]) * 100);
+            return `
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0d1117;border-radius:6px;">
+                <div style="min-width:30px;text-align:right;color:#888;font-size:11px;">#${idx+1}</div>
+                <div style="flex:0 0 120px;font-weight:500;">${word}</div>
+                <div style="flex:1;display:flex;align-items:center;gap:8px;">
+                  <div style="flex:1;height:20px;background:#1f1f1f;border-radius:4px;overflow:hidden;">
+                    <div style="height:100%;background:linear-gradient(90deg,#1f6feb,#58a6ff);width:${barWidth}%;transition:width 0.3s;"></div>
+                  </div>
+                  <div style="min-width:50px;text-align:right;font-weight:600;color:#58a6ff;">${count}</div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    };
+
+    const downloadWords = ()=>{
+      const topWords = getTopWords(1000);
+      const pad=n=>String(n).padStart(2,'0'),d=new Date();
+      const name=`frequent_words_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.txt`;
+      const content = [
+        'Frequent Words Report',
+        `Generated: ${d.toLocaleString()}`,
+        `Total words tracked: ${topWords.reduce((sum, [_, count]) => sum + count, 0)}`,
+        `Unique words: ${Object.keys(wordFrequency).length}`,
+        '',
+        'Rank | Word | Count',
+        '-----+------+-------',
+        ...topWords.map(([word, count], idx) => `${String(idx+1).padStart(4)} | ${word.padEnd(30)} | ${count}`)
+      ].join('\n');
+      downloadText(name, content);
+    };
+
+    panel.querySelector('#freq-toggle-tracking').onclick = ()=>{
+      S.showFrequentWords = !S.showFrequentWords;
+      saveSettings(S);
+      refreshList();
+      log('Word tracking toggled:', S.showFrequentWords ? 'ON' : 'OFF');
+    };
+    panel.querySelector('#freq-refresh').onclick = refreshList;
+    panel.querySelector('#freq-clear').onclick = ()=>{
+      if(confirm('Clear all word frequency data?')){
+        clearWordFrequency();
+        refreshList();
+      }
+    };
+    panel.querySelector('#freq-download').onclick = downloadWords;
+    panel.querySelector('#freq-close').onclick = ()=>toggleFrequentWordsPanel();
+
+    refreshList();
+    return panel;
+  }
+
+  function toggleFrequentWordsPanel(){
+    if(!NS.freqWordsPanelEl){
+      buildFrequentWordsPanel();
+      NS.freqWordsPanelEl.style.display='flex';
+    }else{
+      if(NS.freqWordsPanelEl.style.display==='none'){
+        // Refresh data when reopening
+        const refreshBtn = NS.freqWordsPanelEl.querySelector('#freq-refresh');
+        if(refreshBtn) refreshBtn.click();
+        NS.freqWordsPanelEl.style.display='flex';
+      }else{
+        NS.freqWordsPanelEl.style.display='none';
+      }
+    }
+  }
+
   /* ---------- HOTKEYS ---------- */
   window.addEventListener('keydown',(e)=>{
     if(e.ctrlKey && (e.key==='m'||e.key==='M')){enabled=!enabled;log(`Toggled → ${enabled?'ENABLED':'PAUSED'}`);e.preventDefault();}
     if(e.ctrlKey && (e.key==='d'||e.key==='D')){downloadCaptionsNow();e.preventDefault();}
     if(e.ctrlKey && e.shiftKey && (e.key==='s'||e.key==='S')){togglePanel();e.preventDefault();}
     if(e.ctrlKey && (e.key==='f'||e.key==='F')){flagIncorrectState();e.preventDefault();}
+    if(e.ctrlKey && (e.key==='w'||e.key==='W')){toggleFrequentWordsPanel();e.preventDefault();}
   },true);
 
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
-  log('Booted v3.2.1',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions});
+  log('Booted v3.3.0',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,wordTracking:S.showFrequentWords,hideCaptions:S.hideCaptions,trackedWords:Object.keys(wordFrequency).length});
 })();
