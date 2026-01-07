@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v3.1: Review Settings + Flag Incorrect State)
+// @name         YTTV Auto-Mute (v3.2: Tabbed Settings + UI Improvements)
 // @namespace    http://tampermonkey.net/
-// @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, settings, logs, and "Flag Incorrect State" button with toggle controls for LLM Review and Frequent Words.
-// @version      3.1
+// @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, tabbed settings UI, caption visibility toggle, floating settings button, logs, and "Flag Incorrect State" button with toggle controls for LLM Review and Frequent Words.
+// @version      3.2
 // @match        https://tv.youtube.com/watch/*
 // @match        https://tv.youtube.com/*
 // @grant        GM_setValue
@@ -29,7 +29,7 @@
   }catch{}
   Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,routeObserver:null,
     hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
-    flagBtn:null,llmReviewBtn:null,freqWordsBtn:null,btnContainer:null,_lastUrl:location.href});
+    flagBtn:null,llmReviewBtn:null,freqWordsBtn:null,btnContainer:null,settingsBtn:null,_lastUrl:location.href});
 
   /* ---------- STORAGE SHIMS ---------- */
   const hasGM_get = typeof GM_getValue==='function';
@@ -54,6 +54,9 @@
     // Review features
     llmReviewEnabled:false,
     showFrequentWords:false,
+
+    // Caption visibility
+    hideCaptions:false,
 
     // HUD
     showHUD:false,
@@ -176,7 +179,7 @@
     if(NS.hudEl)return;
     const el=document.createElement('div');
     el.style.cssText=[
-      'position:fixed','right:12px','bottom:12px','z-index:2147483647',
+      'position:fixed','right:12px','bottom:52px','z-index:2147483647',
       'font:12px/1.3 system-ui,sans-serif','background:rgba(0,0,0,.72)','color:#fff',
       'padding:8px 10px','border-radius:8px','max-width:360px','pointer-events:none','white-space:pre-wrap',
       `opacity:0`,`transform:translateY(${S.hudSlidePx|0}px)`,
@@ -189,6 +192,23 @@
   function updateHUDText(t){NS.hudText=t; if(NS.hudEl)NS.hudEl.textContent=t;}
   function scheduleHudVisibility(desired){if(NS.hudTimer)clearTimeout(NS.hudTimer);const tok=Symbol('hud');NS._hudDesiredToken=tok;
     NS.hudTimer=setTimeout(()=>{if(NS._hudDesiredToken!==tok)return;const vis=S.showHUD||(S.hudAutoOnMute&&desired);hudFadeTo(vis);},Math.max(0,S.hudAutoDelayMs|0));}
+
+  /* ---------- SETTINGS BUTTON ---------- */
+  function ensureSettingsButton(){
+    if(NS.settingsBtn)return;
+    const btn=document.createElement('button');
+    btn.textContent='⚙️';
+    btn.title='Settings (Ctrl+Shift+S)';
+    btn.style.cssText=[
+      'position:fixed','right:12px','bottom:12px','z-index:2147483647',
+      'background:#1f6feb','color:#fff','border:none','border-radius:8px',
+      'padding:8px 12px','font:16px/1 system-ui,sans-serif',
+      'box-shadow:0 6px 18px rgba(0,0,0,.3)','cursor:pointer','pointer-events:auto'
+    ].join(';');
+    btn.addEventListener('click',togglePanel);
+    document.documentElement.appendChild(btn);
+    NS.settingsBtn=btn;
+  }
 
   /* ---------- LOG ---------- */
   function pushCaption(text){
@@ -401,6 +421,19 @@
 
     let ccText='',captionsExist=false,captionsBottomed=false;
     if(captionWindow){
+      // Hide or show captions based on setting
+      if(S.hideCaptions){
+        if(captionWindow.style.opacity!=='0'){
+          captionWindow.style.opacity='0';
+          captionWindow.style.visibility='hidden';
+        }
+      }else{
+        if(captionWindow.style.opacity==='0'||captionWindow.style.visibility==='hidden'){
+          captionWindow.style.opacity='';
+          captionWindow.style.visibility='';
+        }
+      }
+
       ccText=(captionWindow.textContent||'').trim();
       captionsExist=ccText.length>0;
       const b=captionWindow.style && captionWindow.style.bottom;
@@ -426,6 +459,7 @@
     NS.intervalId=setInterval(tick,S.intervalMs);
     log('Loop started. INTERVAL_MS:',S.intervalMs,'URL:',location.href);
     ensureHUD();
+    ensureSettingsButton();
     if(S.showHUD){hudFadeTo(true);updateHUDText('Initializing…');}
     else if(S.hudAutoOnMute){hudFadeTo(false);} else {hudFadeTo(false);}
     ensureControlButtons();
@@ -559,88 +593,159 @@
     if(NS.panelEl)return NS.panelEl;
     const panel=document.createElement('div'); NS.panelEl=panel;
     panel.style.cssText=[
-      'position:fixed','right:16px','top:16px','z-index:2147483647','width:560px','max-width:95vw','max-height:85vh','overflow:auto',
-      'background:#111','color:#fff','border:1px solid #333','border-radius:10px','box-shadow:0 10px 30px rgba(0,0,0,.5)','font:13px/1.4 system-ui,sans-serif'
+      'position:fixed','right:16px','top:16px','z-index:2147483647','width:560px','max-width:95vw','max-height:85vh',
+      'background:#111','color:#fff','border:1px solid #333','border-radius:10px','box-shadow:0 10px 30px rgba(0,0,0,.5)','font:13px/1.4 system-ui,sans-serif',
+      'display:flex','flex-direction:column'
     ].join(';');
     const btn='background:#1f6feb;border:none;color:#fff;padding:6px 10px;border-radius:7px;cursor:pointer';
     const input='width:100%;box-sizing:border-box;background:#000;color:#fff;border:1px solid #333;border-radius:7px;padding:6px';
+    const tab='background:transparent;border:none;color:#888;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;font:13px system-ui,sans-serif';
+    const activeTab='color:#fff;border-bottom-color:#1f6feb';
     panel.innerHTML=`
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;position:sticky;top:0;background:#111;">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;background:#111;">
         <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btn}">Save & Apply</button>
           <button id="yttp-close" style="${btn};background:#444">Close (Ctrl+Shift+S)</button>
         </div>
       </div>
-      <div style="padding:12px;display:grid;gap:12px;">
-        <div style="display:grid;gap:8px;">
-          <label><input type="checkbox" id="useTrueMute"> True mute</label>
-          <label><input type="checkbox" id="debug"> Console debug</label>
-          <label><input type="checkbox" id="debugVerboseCC"> Verbose CC debug</label>
+
+      <div style="display:flex;border-bottom:1px solid #333;background:#0d1117;">
+        <button class="yttp-tab" data-tab="general" style="${tab};${activeTab}">General</button>
+        <button class="yttp-tab" data-tab="hud" style="${tab}">HUD</button>
+        <button class="yttp-tab" data-tab="timing" style="${tab}">Timing</button>
+        <button class="yttp-tab" data-tab="phrases" style="${tab}">Phrases</button>
+        <button class="yttp-tab" data-tab="actions" style="${tab}">Actions</button>
+      </div>
+
+      <div style="overflow:auto;flex:1;">
+        <!-- General Tab -->
+        <div class="yttp-tab-content" data-tab="general" style="padding:12px;display:grid;gap:12px;">
+          <div style="display:grid;gap:8px;">
+            <div style="font-weight:600;font-size:13px;">Basic Settings</div>
+            <label><input type="checkbox" id="useTrueMute"> True mute (vs low volume)</label>
+            <label><input type="checkbox" id="debug"> Console debug logging</label>
+            <label><input type="checkbox" id="debugVerboseCC"> Verbose CC debug</label>
+          </div>
+
+          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+            <div style="font-weight:600;font-size:13px;">Review Features</div>
+            <label><input type="checkbox" id="llmReviewEnabled"> Enable LLM Review</label>
+            <label><input type="checkbox" id="showFrequentWords"> Show Frequent Words</label>
+          </div>
+
+          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+            <div style="font-weight:600;font-size:13px;">Caption Display</div>
+            <label><input type="checkbox" id="hideCaptions"> Hide captions from view (still processed for muting)</label>
+          </div>
         </div>
 
-        <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
-          <div style="font-weight:600;font-size:13px;">Review Features</div>
-          <label><input type="checkbox" id="llmReviewEnabled"> Enable LLM Review</label>
-          <label><input type="checkbox" id="showFrequentWords"> Show Frequent Words</label>
+        <!-- HUD Tab -->
+        <div class="yttp-tab-content" data-tab="hud" style="padding:12px;display:none;gap:12px;">
+          <div style="display:grid;gap:8px;">
+            <div style="font-weight:600;font-size:13px;">HUD Visibility</div>
+            <label><input type="checkbox" id="showHUD"> Show HUD always</label>
+            <label><input type="checkbox" id="hudAutoOnMute"> Auto HUD on mute (hide on unmute)</label>
+          </div>
+
+          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+            <div style="font-weight:600;font-size:13px;">HUD Animation</div>
+            <label>HUD auto show/hide delay (ms) <input id="hudAutoDelayMs" type="number" min="0" max="60000" step="100" style="${input}"></label>
+            <label>HUD fade duration (ms) <input id="hudFadeMs" type="number" min="0" max="2000" step="10" style="${input}"></label>
+            <label>HUD slide distance (px) <input id="hudSlidePx" type="number" min="0" max="50" step="1" style="${input}"></label>
+          </div>
         </div>
 
-        <div style="display:grid;gap:8px;">
-          <label><input type="checkbox" id="showHUD"> Show HUD always</label>
-          <label><input type="checkbox" id="hudAutoOnMute"> Auto HUD on mute (hide on unmute)</label>
-          <label>HUD auto show/hide delay (ms) <input id="hudAutoDelayMs" type="number" min="0" max="60000" step="100" style="${input}"></label>
-          <label>HUD fade (ms) <input id="hudFadeMs" type="number" min="0" max="2000" step="10" style="${input}"></label>
-          <label>HUD slide (px) <input id="hudSlidePx" type="number" min="0" max="50" step="1" style="${input}"></label>
+        <!-- Timing Tab -->
+        <div class="yttp-tab-content" data-tab="timing" style="padding:12px;display:none;gap:12px;">
+          <div style="display:grid;gap:6px;">
+            <div style="font-weight:600;font-size:13px;">Detection Timing</div>
+            <label>Poll interval (ms) <input id="intervalMs" type="number" min="50" max="1000" step="10" style="${input}"></label>
+            <label>Fast mute when CC missing (ms) <input id="muteOnNoCCDelayMs" type="number" min="0" max="5000" step="10" style="${input}"></label>
+            <label>Consecutive no-CC hits to mute <input id="noCcHitsToMute" type="number" min="1" max="6" step="1" style="${input}"></label>
+            <label>Unmute debounce (ms) <input id="unmuteDebounceMs" type="number" min="0" max="5000" step="10" style="${input}"></label>
+          </div>
+
+          <div style="display:grid;gap:6px;border-top:1px solid #333;padding-top:8px;">
+            <div style="font-weight:600;font-size:13px;">Ad Lock & Program Detection</div>
+            <label>Ad-lock duration (ms) <input id="minAdLockMs" type="number" min="0" max="60000" step="100" style="${input}"></label>
+            <label>Program votes needed (1–4) <input id="programVotesNeeded" type="number" min="1" max="4" step="1" style="${input}"></label>
+            <label>Program quorum lines (1–8) <input id="programQuorumLines" type="number" min="1" max="8" step="1" style="${input}"></label>
+            <label>Manual override after flag (ms) <input id="manualOverrideMs" type="number" min="0" max="60000" step="100" style="${input}"></label>
+          </div>
         </div>
 
-        <div style="display:grid;gap:6px;">
-          <label>Poll interval (ms) <input id="intervalMs" type="number" min="50" max="1000" step="10" style="${input}"></label>
-          <label>Fast mute when CC missing (ms) <input id="muteOnNoCCDelayMs" type="number" min="0" max="5000" step="10" style="${input}"></label>
-          <label>Consecutive no-CC hits to mute <input id="noCcHitsToMute" type="number" min="1" max="6" step="1" style="${input}"></label>
-          <label>Unmute debounce (ms) <input id="unmuteDebounceMs" type="number" min="0" max="5000" step="10" style="${input}"></label>
-          <label>Ad-lock duration (ms) <input id="minAdLockMs" type="number" min="0" max="60000" step="100" style="${input}"></label>
-          <label>Program votes needed (1–4) <input id="programVotesNeeded" type="number" min="1" max="4" step="1" style="${input}"></label>
-          <label>Program quorum lines (1–8) <input id="programQuorumLines" type="number" min="1" max="8" step="1" style="${input}"></label>
-          <label>Manual override after flag (ms) <input id="manualOverrideMs" type="number" min="0" max="60000" step="100" style="${input}"></label>
-          <label>Auto-download captions every N minutes (0=off) <input id="autoDownloadEveryMin" type="number" min="0" max="360" step="1" style="${input}"></label>
-          <label>Caption log limit (lines) <input id="captionLogLimit" type="number" min="200" max="50000" step="100" style="${input}"></label>
+        <!-- Phrases Tab -->
+        <div class="yttp-tab-content" data-tab="phrases" style="padding:12px;display:none;gap:12px;">
+          <div><div style="margin:6px 0 4px;font-weight:600;">Hard Ad Phrases (one per line)</div>
+            <textarea id="hardPhrases" rows="7" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
+          </div>
+          <div><div style="margin:6px 0 4px;font-weight:600;">Brand Terms (one per line)</div>
+            <textarea id="brandTerms" rows="6" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
+          </div>
+          <div><div style="margin:6px 0 4px;font-weight:600;">Ad Context Phrases (one per line)</div>
+            <textarea id="adContext" rows="6" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
+          </div>
+          <div><div style="margin:6px 0 4px;font-weight:600;">CTA Terms (one per line)</div>
+            <textarea id="ctaTerms" rows="5" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
+          </div>
+          <div><div style="margin:6px 0 4px;font-weight:600;">Offer Terms (one per line)</div>
+            <textarea id="offerTerms" rows="5" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
+          </div>
+          <div><div style="margin:6px 0 4px;font-weight:600;">Allow Phrases (program cues, one per line)</div>
+            <textarea id="allowPhrases" rows="6" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
+          </div>
+          <div><div style="margin:6px 0 4px;font-weight:600;">Break Phrases (one per line)</div>
+            <textarea id="breakPhrases" rows="5" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
+          </div>
         </div>
 
-        <div><div style="margin:6px 0 4px;font-weight:600;">Hard Ad Phrases (one per line)</div>
-          <textarea id="hardPhrases" rows="8" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-        </div>
-        <div><div style="margin:6px 0 4px;font-weight:600;">Brand Terms (one per line)</div>
-          <textarea id="brandTerms" rows="7" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-        </div>
-        <div><div style="margin:6px 0 4px;font-weight:600;">Ad Context Phrases (one per line)</div>
-          <textarea id="adContext" rows="7" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-        </div>
-        <div><div style="margin:6px 0 4px;font-weight:600;">CTA Terms (one per line)</div>
-          <textarea id="ctaTerms" rows="5" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-        </div>
-        <div><div style="margin:6px 0 4px;font-weight:600;">Offer Terms (one per line)</div>
-          <textarea id="offerTerms" rows="5" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-        </div>
-        <div><div style="margin:6px 0 4px;font-weight:600;">Allow Phrases (program cues, one per line)</div>
-          <textarea id="allowPhrases" rows="7" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-        </div>
-        <div><div style="margin:6px 0 4px;font-weight:600;">Break Phrases (one per line)</div>
-          <textarea id="breakPhrases" rows="6" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-        </div>
+        <!-- Actions Tab -->
+        <div class="yttp-tab-content" data-tab="actions" style="padding:12px;display:none;gap:12px;">
+          <div style="display:grid;gap:8px;">
+            <div style="font-weight:600;font-size:13px;">Caption Logging</div>
+            <label>Auto-download captions every N minutes (0=off) <input id="autoDownloadEveryMin" type="number" min="0" max="360" step="1" style="${input}"></label>
+            <label>Caption log limit (lines) <input id="captionLogLimit" type="number" min="200" max="50000" step="100" style="${input}"></label>
+          </div>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button id="dl" style="${btn}">Download Captions (Ctrl+D)</button>
-          <button id="clearlog" style="${btn};background:#8b0000">Clear Caption Log</button>
-          <button id="export" style="${btn}">Export Settings</button>
-          <label style="${btn};display:inline-block;position:relative;overflow:hidden;">
-            Import Settings<input id="import" type="file" accept="application/json" style="opacity:0;position:absolute;left:0;top:0;width:100%;height:100%;cursor:pointer;">
-          </label>
-          <button id="reset" style="${btn};background:#444">Reset Defaults</button>
-        </div>
+          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+            <div style="font-weight:600;font-size:13px;">Quick Actions</div>
+            <button id="dl" style="${btn}">Download Captions (Ctrl+D)</button>
+            <button id="clearlog" style="${btn};background:#8b0000">Clear Caption Log</button>
+          </div>
 
-        <div style="font-size:12px;color:#bbb;">Hotkeys: Ctrl+M (toggle), Ctrl+D (download captions), Ctrl+Shift+S (settings), Ctrl+F (flag incorrect state)</div>
+          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+            <div style="font-weight:600;font-size:13px;">Settings Management</div>
+            <button id="export" style="${btn}">Export Settings to File</button>
+            <label style="${btn};display:inline-block;position:relative;overflow:hidden;">
+              Import Settings from File<input id="import" type="file" accept="application/json" style="opacity:0;position:absolute;left:0;top:0;width:100%;height:100%;cursor:pointer;">
+            </label>
+            <button id="reset" style="${btn};background:#444">Reset All to Defaults</button>
+          </div>
+
+          <div style="border-top:1px solid #333;padding-top:8px;">
+            <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Keyboard Shortcuts</div>
+            <div style="font-size:12px;color:#bbb;line-height:1.6;">
+              • <b>Ctrl+M</b> - Toggle mute/unmute<br>
+              • <b>Ctrl+D</b> - Download captions log<br>
+              • <b>Ctrl+Shift+S</b> - Open/close settings<br>
+              • <b>Ctrl+F</b> - Flag incorrect state
+            </div>
+          </div>
+        </div>
       </div>`;
     document.documentElement.appendChild(panel);
+
+    // Tab switching logic
+    const tabs=panel.querySelectorAll('.yttp-tab');
+    const tabContents=panel.querySelectorAll('.yttp-tab-content');
+    tabs.forEach(tab=>{
+      tab.addEventListener('click',()=>{
+        const targetTab=tab.getAttribute('data-tab');
+        tabs.forEach(t=>t.style.cssText=t.getAttribute('data-tab')===targetTab?`${tab};${activeTab}`:`${tab}`);
+        tabContents.forEach(tc=>{tc.style.display=tc.getAttribute('data-tab')===targetTab?'grid':'none';});
+      });
+    });
 
     // populate
     panel.querySelector('#useTrueMute').checked=S.useTrueMute;
@@ -648,6 +753,7 @@
     panel.querySelector('#debugVerboseCC').checked=S.debugVerboseCC;
     panel.querySelector('#llmReviewEnabled').checked=S.llmReviewEnabled;
     panel.querySelector('#showFrequentWords').checked=S.showFrequentWords;
+    panel.querySelector('#hideCaptions').checked=S.hideCaptions;
     panel.querySelector('#showHUD').checked=S.showHUD;
     panel.querySelector('#hudAutoOnMute').checked=S.hudAutoOnMute;
     panel.querySelector('#hudAutoDelayMs').value=S.hudAutoDelayMs;
@@ -690,6 +796,7 @@
       S.debugVerboseCC=panel.querySelector('#debugVerboseCC').checked;
       S.llmReviewEnabled=panel.querySelector('#llmReviewEnabled').checked;
       S.showFrequentWords=panel.querySelector('#showFrequentWords').checked;
+      S.hideCaptions=panel.querySelector('#hideCaptions').checked;
       S.showHUD=panel.querySelector('#showHUD').checked;
       S.hudAutoOnMute=panel.querySelector('#hudAutoOnMute').checked;
       S.hudAutoDelayMs=clampInt(panel.querySelector('#hudAutoDelayMs').value,0,60000,DEFAULTS.hudAutoDelayMs);
@@ -742,5 +849,5 @@
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
-  log('Booted v3.1',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords});
+  log('Booted v3.2',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions});
 })();
