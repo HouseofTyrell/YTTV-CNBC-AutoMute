@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v3.0: Medicare-weighted ads + Program Quorum + faster CC mute, FP flag button)
+// @name         YTTV Auto-Mute (v3.1: Review Settings + Flag Incorrect State)
 // @namespace    http://tampermonkey.net/
-// @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, settings, logs, and "Flag False Positive" (logs + toggles mute).
-// @version      3.0
+// @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, settings, logs, and "Flag Incorrect State" button with toggle controls for LLM Review and Frequent Words.
+// @version      3.1
 // @match        https://tv.youtube.com/watch/*
 // @match        https://tv.youtube.com/*
 // @grant        GM_setValue
@@ -28,7 +28,8 @@
     if(NS.hudAnimTimer)clearTimeout(NS.hudAnimTimer);
   }catch{}
   Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,routeObserver:null,
-    hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,flagBtn:null,_lastUrl:location.href});
+    hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
+    flagBtn:null,llmReviewBtn:null,freqWordsBtn:null,btnContainer:null,_lastUrl:location.href});
 
   /* ---------- STORAGE SHIMS ---------- */
   const hasGM_get = typeof GM_getValue==='function';
@@ -49,6 +50,10 @@
     intervalMs:150,
     debug:true,
     debugVerboseCC:false,
+
+    // Review features
+    llmReviewEnabled:false,
+    showFrequentWords:false,
 
     // HUD
     showHUD:false,
@@ -425,7 +430,7 @@
     ensureHUD();
     if(S.showHUD){hudFadeTo(true);updateHUDText('Initializing…');}
     else if(S.hudAutoOnMute){hudFadeTo(false);} else {hudFadeTo(false);}
-    ensureFlagButton();
+    ensureControlButtons();
   }
 
   /* ---------- OBSERVERS ---------- */
@@ -454,35 +459,100 @@
   }
   attachRouteObserver();
 
-  /* ---------- FLAG FALSE POSITIVE BUTTON ---------- */
-  function ensureFlagButton(){
-    if(NS.flagBtn)return;
-    const btn=document.createElement('button');
-    btn.textContent='Flag False Positive';
-    btn.style.cssText=[
+  /* ---------- BOTTOM-LEFT CONTROL BUTTONS ---------- */
+  function ensureControlButtons(){
+    if(NS.btnContainer)return;
+
+    // Create container for all buttons
+    const container=document.createElement('div');
+    container.style.cssText=[
       'position:fixed','left:12px','bottom:12px','z-index:2147483647',
-      'background:#e5534b','color:#fff','border:none','border-radius:8px',
-      'padding:8px 10px','font:12px/1.3 system-ui,sans-serif',
-      'box-shadow:0 6px 18px rgba(0,0,0,.3)','cursor:pointer','pointer-events:auto'
+      'display:flex','flex-direction:column','gap:8px','pointer-events:none'
     ].join(';');
-    btn.addEventListener('click',flagFalsePositive);
-    document.documentElement.appendChild(btn); NS.flagBtn=btn;
+    NS.btnContainer=container;
+    document.documentElement.appendChild(container);
+
+    // Common button style
+    const btnStyle=[
+      'background:#1f6feb','color:#fff','border:none','border-radius:8px',
+      'padding:8px 10px','font:12px/1.3 system-ui,sans-serif',
+      'box-shadow:0 6px 18px rgba(0,0,0,.3)','cursor:pointer','pointer-events:auto',
+      'min-width:160px','text-align:center'
+    ].join(';');
+
+    // Flag Incorrect State button
+    const flagBtn=document.createElement('button');
+    flagBtn.textContent='Flag Incorrect State';
+    flagBtn.style.cssText=btnStyle.replace('#1f6feb','#e5534b');
+    flagBtn.addEventListener('click',flagIncorrectState);
+    container.appendChild(flagBtn); NS.flagBtn=flagBtn;
+
+    // LLM Review toggle button
+    const llmBtn=document.createElement('button');
+    updateLLMButtonText(llmBtn);
+    llmBtn.style.cssText=btnStyle;
+    llmBtn.addEventListener('click',toggleLLMReview);
+    container.appendChild(llmBtn); NS.llmReviewBtn=llmBtn;
+
+    // Frequent Words toggle button
+    const freqBtn=document.createElement('button');
+    updateFreqWordsButtonText(freqBtn);
+    freqBtn.style.cssText=btnStyle;
+    freqBtn.addEventListener('click',toggleFrequentWords);
+    container.appendChild(freqBtn); NS.freqWordsBtn=freqBtn;
   }
-  function flagFalsePositive(){
+
+  function updateLLMButtonText(btn){
+    if(!btn)btn=NS.llmReviewBtn;
+    if(btn)btn.textContent=S.llmReviewEnabled?'LLM Review: ON':'LLM Review: OFF';
+  }
+
+  function updateFreqWordsButtonText(btn){
+    if(!btn)btn=NS.freqWordsBtn;
+    if(btn)btn.textContent=S.showFrequentWords?'Frequent Words: ON':'Frequent Words: OFF';
+  }
+
+  function flagIncorrectState(){
     const {captionWindow,video}=detectNodes();
     const cc=(captionWindow?.textContent||'').trim();
-    pushEventLog('FLAG_FALSE_POSITIVE',{
-      reason:lastMuteState?'muted_but_program':'unmuted_but_user_flagged',
-      ccSnippet:cc?cc.slice(0,200)+(cc.length>200?'…':''):'',url:location.href
+    const currentMuted=lastMuteState===true;
+
+    pushEventLog('FLAG_INCORRECT_STATE',{
+      reason:currentMuted?'was_muted_toggling_unmute':'was_unmuted_toggling_mute',
+      ccSnippet:cc?cc.slice(0,200)+(cc.length>200?'…':''):'',
+      url:location.href,
+      noCcMs:Date.now()-lastCcSeenMs,
+      lock:Math.max(0,adLockUntil-Date.now()),
+      pv:programVotes,
+      quorum:programQuorumCount
     });
+
     if(video){
-      if(lastMuteState===true){
-        adLockUntil=0; programQuorumCount=S.programQuorumLines; manualOverrideUntil=Date.now()+S.manualOverrideMs;
-        setMuted(video,false,{reason:'MANUAL_OVERRIDE_UNMUTE',match:null,ccSnippet:cc.slice(0,140),noCcMs:Date.now()-lastCcSeenMs});
+      if(currentMuted){
+        // Was muted, toggle to unmute
+        adLockUntil=0;
+        programQuorumCount=S.programQuorumLines;
+        manualOverrideUntil=Date.now()+S.manualOverrideMs;
+        setMuted(video,false,{reason:'FLAG_INCORRECT_STATE_UNMUTE',match:null,ccSnippet:cc.slice(0,140),noCcMs:Date.now()-lastCcSeenMs});
       }else{
-        setMuted(video,true,{reason:'MANUAL_OVERRIDE_MUTE',match:null,ccSnippet:cc.slice(0,140),noCcMs:Date.now()-lastCcSeenMs});
+        // Was unmuted, toggle to mute
+        setMuted(video,true,{reason:'FLAG_INCORRECT_STATE_MUTE',match:null,ccSnippet:cc.slice(0,140),noCcMs:Date.now()-lastCcSeenMs});
       }
     }
+  }
+
+  function toggleLLMReview(){
+    S.llmReviewEnabled=!S.llmReviewEnabled;
+    saveSettings(S);
+    updateLLMButtonText();
+    log('LLM Review toggled:',S.llmReviewEnabled?'ON':'OFF');
+  }
+
+  function toggleFrequentWords(){
+    S.showFrequentWords=!S.showFrequentWords;
+    saveSettings(S);
+    updateFreqWordsButtonText();
+    log('Frequent Words toggled:',S.showFrequentWords?'ON':'OFF');
   }
 
   /* ---------- SETTINGS PANEL ---------- */
@@ -509,6 +579,12 @@
           <label><input type="checkbox" id="useTrueMute"> True mute</label>
           <label><input type="checkbox" id="debug"> Console debug</label>
           <label><input type="checkbox" id="debugVerboseCC"> Verbose CC debug</label>
+        </div>
+
+        <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+          <div style="font-weight:600;font-size:13px;">Review Features</div>
+          <label><input type="checkbox" id="llmReviewEnabled"> Enable LLM Review</label>
+          <label><input type="checkbox" id="showFrequentWords"> Show Frequent Words</label>
         </div>
 
         <div style="display:grid;gap:8px;">
@@ -564,7 +640,7 @@
           <button id="reset" style="${btn};background:#444">Reset Defaults</button>
         </div>
 
-        <div style="font-size:12px;color:#bbb;">Hotkeys: Ctrl+M (toggle), Ctrl+D (download captions), Ctrl+Shift+S (settings), Ctrl+F (flag false positive)</div>
+        <div style="font-size:12px;color:#bbb;">Hotkeys: Ctrl+M (toggle), Ctrl+D (download captions), Ctrl+Shift+S (settings), Ctrl+F (flag incorrect state)</div>
       </div>`;
     document.documentElement.appendChild(panel);
 
@@ -572,6 +648,8 @@
     panel.querySelector('#useTrueMute').checked=S.useTrueMute;
     panel.querySelector('#debug').checked=S.debug;
     panel.querySelector('#debugVerboseCC').checked=S.debugVerboseCC;
+    panel.querySelector('#llmReviewEnabled').checked=S.llmReviewEnabled;
+    panel.querySelector('#showFrequentWords').checked=S.showFrequentWords;
     panel.querySelector('#showHUD').checked=S.showHUD;
     panel.querySelector('#hudAutoOnMute').checked=S.hudAutoOnMute;
     panel.querySelector('#hudAutoDelayMs').value=S.hudAutoDelayMs;
@@ -612,6 +690,8 @@
       S.useTrueMute=panel.querySelector('#useTrueMute').checked;
       S.debug=panel.querySelector('#debug').checked;
       S.debugVerboseCC=panel.querySelector('#debugVerboseCC').checked;
+      S.llmReviewEnabled=panel.querySelector('#llmReviewEnabled').checked;
+      S.showFrequentWords=panel.querySelector('#showFrequentWords').checked;
       S.showHUD=panel.querySelector('#showHUD').checked;
       S.hudAutoOnMute=panel.querySelector('#hudAutoOnMute').checked;
       S.hudAutoDelayMs=clampInt(panel.querySelector('#hudAutoDelayMs').value,0,60000,DEFAULTS.hudAutoDelayMs);
@@ -644,6 +724,8 @@
       ALLOW_PHRASES=toLines(Array.isArray(S.allowPhrases)?S.allowPhrases.join('\n'):S.allowPhrases);
       BREAK_PHRASES=toLines(Array.isArray(S.breakPhrases)?S.breakPhrases.join('\n'):S.breakPhrases);
 
+      updateLLMButtonText();
+      updateFreqWordsButtonText();
       saveSettings(S); applySettings(true); alert('Settings saved and applied.');
     };
     return panel;
@@ -656,11 +738,11 @@
     if(e.ctrlKey && (e.key==='m'||e.key==='M')){enabled=!enabled;log(`Toggled → ${enabled?'ENABLED':'PAUSED'}`);e.preventDefault();}
     if(e.ctrlKey && (e.key==='d'||e.key==='D')){downloadCaptionsNow();e.preventDefault();}
     if(e.ctrlKey && e.shiftKey && (e.key==='s'||e.key==='S')){togglePanel();e.preventDefault();}
-    if(e.ctrlKey && (e.key==='f'||e.key==='F')){flagFalsePositive();e.preventDefault();}
+    if(e.ctrlKey && (e.key==='f'||e.key==='F')){flagIncorrectState();e.preventDefault();}
   },true);
 
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
-  log('Booted v3.0',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length});
+  log('Booted v3.1',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords});
 })();
