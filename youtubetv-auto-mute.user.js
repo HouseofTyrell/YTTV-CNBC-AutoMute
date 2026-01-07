@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v3.2: Tabbed Settings + UI Improvements)
+// @name         YTTV Auto-Mute (v3.2.1: Tabbed Settings + UI Improvements)
 // @namespace    http://tampermonkey.net/
-// @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, tabbed settings UI, caption visibility toggle, floating settings button, logs, and "Flag Incorrect State" button with toggle controls for LLM Review and Frequent Words.
-// @version      3.2
+// @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, tabbed settings UI, caption visibility toggle (no flicker), floating settings button, logs, and "Flag Incorrect State" button with toggle controls for LLM Review and Frequent Words.
+// @version      3.2.1
 // @match        https://tv.youtube.com/watch/*
 // @match        https://tv.youtube.com/*
 // @grant        GM_setValue
@@ -168,6 +168,7 @@
   let adLockUntil=0, programVotes=0, manualOverrideUntil=0;
   let noCcConsec=0, bottomConsec=0;
   let programQuorumCount=0;   // NEW
+  let lastCaptionVisibility=null;  // Track last visibility state to avoid flickering
 
   const URL_RE=/\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i;
   const PHONE_RE=/\b(?:\d{3}[-\s.]?\d{3}[-\s.]?\d{4})\b/;
@@ -416,21 +417,22 @@
     if(!videoRef){
       videoRef=video; log('Player found. Ready.');
       lastCcSeenMs=Date.now(); lastProgramGoodMs=0; adLockUntil=0; programVotes=0; manualOverrideUntil=0;
-      noCcConsec=0; bottomConsec=0; programQuorumCount=0;
+      noCcConsec=0; bottomConsec=0; programQuorumCount=0; lastCaptionVisibility=null;
     }
 
     let ccText='',captionsExist=false,captionsBottomed=false;
     if(captionWindow){
-      // Hide or show captions based on setting
-      if(S.hideCaptions){
-        if(captionWindow.style.opacity!=='0'){
-          captionWindow.style.opacity='0';
-          captionWindow.style.visibility='hidden';
-        }
-      }else{
-        if(captionWindow.style.opacity==='0'||captionWindow.style.visibility==='hidden'){
-          captionWindow.style.opacity='';
-          captionWindow.style.visibility='';
+      // Hide or show captions based on setting - only update if changed to prevent flickering
+      if(S.hideCaptions!==lastCaptionVisibility){
+        lastCaptionVisibility=S.hideCaptions;
+        if(S.hideCaptions){
+          // Use setAttribute for more forceful style override
+          captionWindow.setAttribute('style',(captionWindow.getAttribute('style')||'')+';opacity:0!important;visibility:hidden!important;pointer-events:none!important');
+        }else{
+          // Remove our overrides by resetting to original style without our additions
+          const styleAttr=captionWindow.getAttribute('style')||'';
+          const cleanedStyle=styleAttr.replace(/;?opacity:0!important/g,'').replace(/;?visibility:hidden!important/g,'').replace(/;?pointer-events:none!important/g,'');
+          captionWindow.setAttribute('style',cleanedStyle);
         }
       }
 
@@ -481,7 +483,7 @@
         NS._lastUrl=location.href; log('Route change →',NS._lastUrl);
         lastMuteState=null; lastCaptionLine=''; videoRef=null;
         lastCcSeenMs=Date.now(); lastProgramGoodMs=0; adLockUntil=0; programVotes=0; manualOverrideUntil=0;
-        noCcConsec=0; bottomConsec=0; programQuorumCount=0;
+        noCcConsec=0; bottomConsec=0; programQuorumCount=0; lastCaptionVisibility=null;
         if(NS.hudTimer){clearTimeout(NS.hudTimer);NS.hudTimer=null;}
         if(NS.hudAnimTimer){clearTimeout(NS.hudAnimTimer);NS.hudAnimTimer=null;}
         startLoop();
@@ -849,5 +851,5 @@
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
-  log('Booted v3.2',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions});
+  log('Booted v3.2.1',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions});
 })();
