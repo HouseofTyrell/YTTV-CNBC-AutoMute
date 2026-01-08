@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v3.2.1: Tabbed Settings + UI Improvements)
+// @name         YTTV Auto-Mute (v3.2.2: Move Options to Settings)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, tabbed settings UI, caption visibility toggle (no flicker), floating settings button, logs, and "Flag Incorrect State" button with toggle controls for LLM Review and Frequent Words.
 // @version      3.2.1
-// @updateURL   https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
-// @downloadURL https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
+// @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
+// @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
 // @match        https://tv.youtube.com/*
 // @grant        GM_setValue
@@ -31,7 +31,7 @@
   }catch{}
   Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,routeObserver:null,
     hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
-    flagBtn:null,llmReviewBtn:null,freqWordsBtn:null,btnContainer:null,settingsBtn:null,_lastUrl:location.href});
+    flagBtn:null,btnContainer:null,settingsBtn:null,_lastUrl:location.href});
 
   /* ---------- STORAGE SHIMS ---------- */
   const hasGM_get = typeof GM_getValue==='function';
@@ -522,30 +522,6 @@
     flagBtn.style.cssText=btnStyle.replace('#1f6feb','#e5534b');
     flagBtn.addEventListener('click',flagIncorrectState);
     container.appendChild(flagBtn); NS.flagBtn=flagBtn;
-
-    // LLM Review toggle button
-    const llmBtn=document.createElement('button');
-    updateLLMButtonText(llmBtn);
-    llmBtn.style.cssText=btnStyle;
-    llmBtn.addEventListener('click',toggleLLMReview);
-    container.appendChild(llmBtn); NS.llmReviewBtn=llmBtn;
-
-    // Frequent Words toggle button
-    const freqBtn=document.createElement('button');
-    updateFreqWordsButtonText(freqBtn);
-    freqBtn.style.cssText=btnStyle;
-    freqBtn.addEventListener('click',toggleFrequentWords);
-    container.appendChild(freqBtn); NS.freqWordsBtn=freqBtn;
-  }
-
-  function updateLLMButtonText(btn){
-    if(!btn)btn=NS.llmReviewBtn;
-    if(btn)btn.textContent=S.llmReviewEnabled?'LLM Review: ON':'LLM Review: OFF';
-  }
-
-  function updateFreqWordsButtonText(btn){
-    if(!btn)btn=NS.freqWordsBtn;
-    if(btn)btn.textContent=S.showFrequentWords?'Frequent Words: ON':'Frequent Words: OFF';
   }
 
   function flagIncorrectState(){
@@ -575,20 +551,6 @@
         setMuted(video,true,{reason:'FLAG_INCORRECT_STATE_MUTE',match:null,ccSnippet:cc.slice(0,140),noCcMs:Date.now()-lastCcSeenMs});
       }
     }
-  }
-
-  function toggleLLMReview(){
-    S.llmReviewEnabled=!S.llmReviewEnabled;
-    saveSettings(S);
-    updateLLMButtonText();
-    log('LLM Review toggled:',S.llmReviewEnabled?'ON':'OFF');
-  }
-
-  function toggleFrequentWords(){
-    S.showFrequentWords=!S.showFrequentWords;
-    saveSettings(S);
-    updateFreqWordsButtonText();
-    log('Frequent Words toggled:',S.showFrequentWords?'ON':'OFF');
   }
 
   /* ---------- SETTINGS PANEL ---------- */
@@ -833,8 +795,6 @@
       ALLOW_PHRASES=toLines(Array.isArray(S.allowPhrases)?S.allowPhrases.join('\n'):S.allowPhrases);
       BREAK_PHRASES=toLines(Array.isArray(S.breakPhrases)?S.breakPhrases.join('\n'):S.breakPhrases);
 
-      updateLLMButtonText();
-      updateFreqWordsButtonText();
       saveSettings(S); applySettings(true); alert('Settings saved and applied.');
     };
     return panel;
@@ -853,5 +813,5 @@
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
-  log('Booted v3.2.1',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions});
+  log('Booted v3.2.2',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions});
 })();
