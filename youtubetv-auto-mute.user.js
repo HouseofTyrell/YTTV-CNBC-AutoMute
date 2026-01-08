@@ -3,6 +3,8 @@
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, tabbed settings UI, caption visibility toggle (no flicker), floating settings button, logs, and "Flag Incorrect State" button with toggle controls for LLM Review and Frequent Words.
 // @version      3.2.1
+// @updateURL   https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
+// @downloadURL https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
 // @match        https://tv.youtube.com/*
 // @grant        GM_setValue
