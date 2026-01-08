@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v3.2.2: Move Options to Settings)
+// @name         YTTV Auto-Mute (v3.3.0: Confidence Meter & Manual Mute)
 // @namespace    http://tampermonkey.net/
-// @description  Auto-mute ads on YouTube TV using captions + heuristics. Medicare/benefits ads weighted, program quorum to unmute after breaks, faster CC-loss mute (with safety), HUD, tabbed settings UI, caption visibility toggle (no flicker), floating settings button, logs, and "Flag Incorrect State" button with toggle controls for LLM Review and Frequent Words.
-// @version      3.2.1
+// @description  Auto-mute ads on YouTube TV using captions + heuristics. Now with confidence meter showing ad detection strength, manual mute button, faster unmute, and enhanced detection (caps, punctuation, text length). Medicare/benefits ads weighted, program quorum, HUD, tabbed settings UI, caption visibility toggle, logs, and "Flag Incorrect State" button.
+// @version      3.3.0
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -31,7 +31,7 @@
   }catch{}
   Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,routeObserver:null,
     hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
-    flagBtn:null,btnContainer:null,settingsBtn:null,_lastUrl:location.href});
+    flagBtn:null,btnContainer:null,settingsBtn:null,muteBtn:null,_lastUrl:location.href});
 
   /* ---------- STORAGE SHIMS ---------- */
   const hasGM_get = typeof GM_getValue==='function';
@@ -67,17 +67,21 @@
     hudFadeMs:250,
     hudSlidePx:8,
 
+    // Confidence Meter
+    showConfidenceMeter:true,
+    confidenceMeterStyle:'bar',  // 'bar', 'numeric', 'both'
+
     // Timing / CC loss
     muteOnNoCCDelayMs:180,   // lower/faster
     noCcHitsToMute:2,        // needs consecutive hits
-    unmuteDebounceMs:500,
+    unmuteDebounceMs:350,    // reduced from 500 for faster unmute
 
     // Ad lock
     minAdLockMs:20000,
 
     // Program gating
     programVotesNeeded:2,
-    programQuorumLines:4,    // NEW: need N consecutive program-leaning lines before unmute (unless strong allow)
+    programQuorumLines:3,    // reduced from 4 for faster unmute
     fastRecheckRAF:true,
 
     // Manual override window after FP flag (prevents immediate re-mute unless hard ad)
@@ -171,11 +175,83 @@
   let noCcConsec=0, bottomConsec=0;
   let programQuorumCount=0;   // NEW
   let lastCaptionVisibility=null;  // Track last visibility state to avoid flickering
+  let currentConfidence=0;  // Confidence score (0-100)
+  let manualMuteActive=false;  // Manual mute button state
 
   const URL_RE=/\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i;
   const PHONE_RE=/\b(?:\d{3}[-\s.]?\d{3}[-\s.]?\d{4})\b/;
   const DOLLAR_RE=/\$\s?\d/;
   const PER_RE=/\b\d+\s?(?:per|\/)\s?(?:month|mo|yr|year)\b/i;
+
+  /* ---------- ADDITIONAL AD INDICATORS ---------- */
+  function analyzeTextFeatures(text){
+    if(!text) return {capsRatio:0,punctDensity:0,shortText:false,priceCount:0};
+
+    const upperCount = (text.match(/[A-Z]/g)||[]).length;
+    const letterCount = (text.match(/[a-zA-Z]/g)||[]).length;
+    const capsRatio = letterCount>0 ? upperCount/letterCount : 0;
+
+    const punctCount = (text.match(/[!?]/g)||[]).length;
+    const punctDensity = text.length>0 ? punctCount/text.length : 0;
+
+    const shortText = text.length>0 && text.length<50;
+
+    const priceMatches = text.match(/\$\d+|\d+\s?(?:dollars?|cents?)/gi)||[];
+    const priceCount = priceMatches.length;
+
+    return {capsRatio,punctDensity,shortText,priceCount};
+  }
+
+  /* ---------- CONFIDENCE CALCULATION ---------- */
+  function calculateConfidence(verdict, matched, ccText, {captionsExist,captionsBottomed,noCcMs}){
+    let confidence = 50; // Start neutral
+    const features = analyzeTextFeatures(ccText);
+
+    // Verdict-based confidence
+    if(verdict==='AD_HARD'){
+      confidence = 95;
+      // Medicare/benefits boost
+      if(matched && (matched.includes('medicare')||matched.includes('enrollment')||matched.includes('licensed agent'))){
+        confidence = 98;
+      }
+    }
+    else if(verdict==='AD_BREAK') confidence = 90;
+    else if(verdict==='AD_BRAND_WITH_CONTEXT') confidence = 85;
+    else if(verdict==='AD_SIGNAL_SCORE'){
+      confidence = 70 + Math.min(20, noCcMs/200); // Grows with no-CC duration
+    }
+    else if(verdict==='PROGRAM_ALLOW') confidence = 5;
+    else if(verdict==='PROGRAM_ANCHOR') confidence = 15;
+    else if(verdict==='PROGRAM') confidence = 30;
+
+    // Text feature adjustments
+    if(features.capsRatio>0.3) confidence += 8; // Lots of caps = likely ad
+    if(features.punctDensity>0.05) confidence += 5; // Exclamation/question marks
+    if(features.shortText && confidence>50) confidence += 5; // Short punchy text in ad context
+    if(features.priceCount>0) confidence += features.priceCount*5; // Multiple prices mentioned
+
+    // URL/phone presence
+    if(ccText){
+      if(URL_RE.test(ccText)) confidence += 10;
+      if(PHONE_RE.test(ccText)) confidence += 10;
+    }
+
+    // Caption behavior
+    if(!captionsExist && noCcMs>500) confidence += Math.min(15, noCcMs/400);
+    if(captionsBottomed) confidence += 5;
+
+    // Lock state affects confidence display
+    const lockActive = Date.now() < adLockUntil;
+    if(lockActive && confidence<70) confidence = 70; // Show we're in ad lock
+
+    // Program quorum progress (reduces confidence)
+    if(programQuorumCount>0){
+      confidence -= programQuorumCount*5;
+    }
+
+    // Clamp to 0-100
+    return Math.max(0, Math.min(100, Math.round(confidence)));
+  }
 
   /* ---------- HUD ---------- */
   function ensureHUD(){
@@ -192,11 +268,32 @@
   }
   function hudFadeTo(v){ensureHUD();if(!NS.hudEl)return; if(NS.hudAnimTimer){clearTimeout(NS.hudAnimTimer);NS.hudAnimTimer=null;}
     NS.hudEl.style.opacity=v?'1':'0';NS.hudEl.style.transform=v?'translateY(0px)':`translateY(${S.hudSlidePx|0}px)`;}
-  function updateHUDText(t){NS.hudText=t; if(NS.hudEl)NS.hudEl.textContent=t;}
+  function updateHUDText(t,confidence){
+    NS.hudText=t;
+    if(!NS.hudEl) return;
+
+    let displayText = t;
+
+    // Add confidence meter if enabled
+    if(S.showConfidenceMeter && (S.confidenceMeterStyle==='numeric'||S.confidenceMeterStyle==='both')){
+      displayText += `\n\nAd Confidence: ${confidence}%`;
+    }
+
+    if(S.showConfidenceMeter && (S.confidenceMeterStyle==='bar'||S.confidenceMeterStyle==='both')){
+      const barWidth = 30;
+      const filled = Math.round((confidence/100)*barWidth);
+      const empty = barWidth - filled;
+      const bar = '█'.repeat(filled) + '░'.repeat(empty);
+      const color = confidence>70?'#f85149':(confidence>40?'#d29922':'#3fb950');
+      displayText += `\n<span style="color:${color}">▐${bar}▌</span> ${confidence}%`;
+    }
+
+    NS.hudEl.innerHTML = displayText.replace(/\n/g,'<br>');
+  }
   function scheduleHudVisibility(desired){if(NS.hudTimer)clearTimeout(NS.hudTimer);const tok=Symbol('hud');NS._hudDesiredToken=tok;
     NS.hudTimer=setTimeout(()=>{if(NS._hudDesiredToken!==tok)return;const vis=S.showHUD||(S.hudAutoOnMute&&desired);hudFadeTo(vis);},Math.max(0,S.hudAutoDelayMs|0));}
 
-  /* ---------- SETTINGS BUTTON ---------- */
+  /* ---------- SETTINGS & MANUAL MUTE BUTTONS ---------- */
   function ensureSettingsButton(){
     if(NS.settingsBtn)return;
     const btn=document.createElement('button');
@@ -211,6 +308,30 @@
     btn.addEventListener('click',togglePanel);
     document.documentElement.appendChild(btn);
     NS.settingsBtn=btn;
+    ensureManualMuteButton();
+  }
+
+  function ensureManualMuteButton(){
+    if(NS.muteBtn)return;
+    const btn=document.createElement('button');
+    btn.textContent='🔇';
+    btn.title='Manual Mute Toggle';
+    btn.style.cssText=[
+      'position:fixed','right:68px','bottom:12px','z-index:2147483647',
+      'background:#444','color:#fff','border:none','border-radius:8px',
+      'padding:8px 12px','font:16px/1 system-ui,sans-serif',
+      'box-shadow:0 6px 18px rgba(0,0,0,.3)','cursor:pointer','pointer-events:auto'
+    ].join(';');
+    btn.addEventListener('click',()=>{
+      manualMuteActive = !manualMuteActive;
+      btn.textContent = manualMuteActive ? '🔇' : '🔊';
+      btn.style.background = manualMuteActive ? '#8b0000' : '#444';
+      btn.title = manualMuteActive ? 'Manual Mute Active (Click to Unmute)' : 'Manual Mute Toggle';
+      log(`Manual mute ${manualMuteActive?'ENABLED':'DISABLED'}`);
+      scheduleImmediateCheck();
+    });
+    document.documentElement.appendChild(btn);
+    NS.muteBtn=btn;
   }
 
   /* ---------- LOG ---------- */
@@ -303,7 +424,14 @@
   /* ---------- MUTE/UNMUTE ---------- */
   function setMuted(video,shouldMute,info){
     if(!video)return;
-    if(!enabled) shouldMute=false;
+
+    // Manual mute override
+    if(manualMuteActive){
+      shouldMute = true;
+    } else if(!enabled){
+      shouldMute=false;
+    }
+
     const changed=(lastMuteState!==shouldMute);
 
     if(S.useTrueMute){ if(video.muted!==shouldMute) video.muted=shouldMute; }
@@ -319,11 +447,14 @@
       else if(S.showHUD) hudFadeTo(true);
     }
     lastMuteState=shouldMute;
+
+    const statusPrefix = manualMuteActive ? '[MANUAL MUTE] ' : (enabled?'':'[PAUSED] ');
     updateHUDText(
-      (enabled?'':'[PAUSED] ')+`${shouldMute?'MUTED':'UNMUTED'}\n`+
+      statusPrefix+`${shouldMute?'MUTED':'UNMUTED'}\n`+
       `Reason: ${info.reason}\n`+
       (info.match?`Match: "${info.match}"\n`:'' )+
-      (info.ccSnippet?`CC: "${info.ccSnippet}"`:'' )
+      (info.ccSnippet?`CC: "${info.ccSnippet}"`:'' ),
+      info.confidence || currentConfidence
     );
   }
 
@@ -346,6 +477,9 @@
     const noCcMs=t-lastCcSeenMs;
     const res=detectAdSignals(ccText,{captionsExist,captionsBottomed,noCcMs});
 
+    // Calculate confidence
+    currentConfidence = calculateConfidence(res.verdict, res.matched, ccText, {captionsExist,captionsBottomed,noCcMs});
+
     let shouldMute=false;
     let reason='PROGRAM_DETECTED';
     let match=res.matched;
@@ -354,7 +488,7 @@
     const manualActive = t < manualOverrideUntil;
     const hardAd = (res.verdict==='AD_HARD'||res.verdict==='AD_BRAND_WITH_CONTEXT');
     if(manualActive && !hardAd){
-      setMuted(video,false,{reason:'MANUAL_OVERRIDE_ACTIVE',match,ccSnippet:ccText?ccText.slice(0,140)+(ccText.length>140?'…':''):'',noCcMs});
+      setMuted(video,false,{reason:'MANUAL_OVERRIDE_ACTIVE',match,ccSnippet:ccText?ccText.slice(0,140)+(ccText.length>140?'…':''):'',noCcMs,confidence:currentConfidence});
       return;
     }
 
@@ -369,7 +503,7 @@
     // Instant allow (clear lock + immediate unmute)
     if(res.verdict==='PROGRAM_ALLOW'){
       adLockUntil=0; programVotes=S.programVotesNeeded; programQuorumCount=S.programQuorumLines;
-      setMuted(video,false,{reason:'PROGRAM_ALLOW_INSTANT',match,ccSnippet:ccText?ccText.slice(0,140)+(ccText.length>140?'…':''):'',noCcMs});
+      setMuted(video,false,{reason:'PROGRAM_ALLOW_INSTANT',match,ccSnippet:ccText?ccText.slice(0,140)+(ccText.length>140?'…':''):'',noCcMs,confidence:currentConfidence});
       return;
     }
 
@@ -409,13 +543,13 @@
     }
 
     setMuted(video,shouldMute,{
-      reason,match,ccSnippet:ccText?ccText.slice(0,140)+(ccText.length>140?'…':''):'',noCcMs
+      reason,match,ccSnippet:ccText?ccText.slice(0,140)+(ccText.length>140?'…':''):'',noCcMs,confidence:currentConfidence
     });
   }
 
   function tick(){
     const {video,captionSegment,captionWindow}=detectNodes();
-    if(!video){ if(videoRef)log('Video disappeared; waiting…'); videoRef=null; updateHUDText('Waiting for player…'); return; }
+    if(!video){ if(videoRef)log('Video disappeared; waiting…'); videoRef=null; updateHUDText('Waiting for player…',0); return; }
     if(!videoRef){
       videoRef=video; log('Player found. Ready.');
       lastCcSeenMs=Date.now(); lastProgramGoodMs=0; adLockUntil=0; programVotes=0; manualOverrideUntil=0;
@@ -464,7 +598,7 @@
     log('Loop started. INTERVAL_MS:',S.intervalMs,'URL:',location.href);
     ensureHUD();
     ensureSettingsButton();
-    if(S.showHUD){hudFadeTo(true);updateHUDText('Initializing…');}
+    if(S.showHUD){hudFadeTo(true);updateHUDText('Initializing…',0);}
     else if(S.hudAutoOnMute){hudFadeTo(false);} else {hudFadeTo(false);}
     ensureControlButtons();
   }
@@ -615,6 +749,18 @@
           </div>
 
           <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+            <div style="font-weight:600;font-size:13px;">Confidence Meter</div>
+            <label><input type="checkbox" id="showConfidenceMeter"> Show confidence meter</label>
+            <label>Confidence meter style
+              <select id="confidenceMeterStyle" style="${input}">
+                <option value="bar">Bar only</option>
+                <option value="numeric">Numeric only</option>
+                <option value="both">Both bar and numeric</option>
+              </select>
+            </label>
+          </div>
+
+          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
             <div style="font-weight:600;font-size:13px;">HUD Animation</div>
             <label>HUD auto show/hide delay (ms) <input id="hudAutoDelayMs" type="number" min="0" max="60000" step="100" style="${input}"></label>
             <label>HUD fade duration (ms) <input id="hudFadeMs" type="number" min="0" max="2000" step="10" style="${input}"></label>
@@ -722,6 +868,8 @@
     panel.querySelector('#hideCaptions').checked=S.hideCaptions;
     panel.querySelector('#showHUD').checked=S.showHUD;
     panel.querySelector('#hudAutoOnMute').checked=S.hudAutoOnMute;
+    panel.querySelector('#showConfidenceMeter').checked=S.showConfidenceMeter;
+    panel.querySelector('#confidenceMeterStyle').value=S.confidenceMeterStyle||'bar';
     panel.querySelector('#hudAutoDelayMs').value=S.hudAutoDelayMs;
     panel.querySelector('#hudFadeMs').value=S.hudFadeMs;
     panel.querySelector('#hudSlidePx').value=S.hudSlidePx;
@@ -765,6 +913,8 @@
       S.hideCaptions=panel.querySelector('#hideCaptions').checked;
       S.showHUD=panel.querySelector('#showHUD').checked;
       S.hudAutoOnMute=panel.querySelector('#hudAutoOnMute').checked;
+      S.showConfidenceMeter=panel.querySelector('#showConfidenceMeter').checked;
+      S.confidenceMeterStyle=panel.querySelector('#confidenceMeterStyle').value;
       S.hudAutoDelayMs=clampInt(panel.querySelector('#hudAutoDelayMs').value,0,60000,DEFAULTS.hudAutoDelayMs);
       S.hudFadeMs=clampInt(panel.querySelector('#hudFadeMs').value,0,2000,DEFAULTS.hudFadeMs);
       S.hudSlidePx=clampInt(panel.querySelector('#hudSlidePx').value,0,50,DEFAULTS.hudSlidePx);
@@ -813,5 +963,5 @@
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
-  log('Booted v3.2.2',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions});
+  log('Booted v3.3.0',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter});
 })();
