@@ -259,7 +259,7 @@
     if(NS.hudEl)return;
     const el=document.createElement('div');
     el.style.cssText=[
-      'position:fixed','right:12px','bottom:52px','z-index:2147483647',
+      'position:fixed','right:12px','bottom:120px','z-index:2147483647',
       'font:12px/1.3 system-ui,sans-serif','background:rgba(0,0,0,.72)','color:#fff',
       'padding:8px 10px','border-radius:8px','width:280px','pointer-events:none','white-space:pre-wrap',
       'overflow:hidden','word-wrap:break-word',
