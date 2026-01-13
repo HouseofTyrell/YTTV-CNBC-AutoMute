@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v3.3.0: Confidence Meter & Manual Mute)
+// @name         YTTV Auto-Mute (v3.4.0: Confidence Threshold Slider)
 // @namespace    http://tampermonkey.net/
-// @description  Auto-mute ads on YouTube TV using captions + heuristics. Now with confidence meter showing ad detection strength, manual mute button, faster unmute, and enhanced detection (caps, punctuation, text length). Medicare/benefits ads weighted, program quorum, HUD, tabbed settings UI, caption visibility toggle, logs, and "Flag Incorrect State" button.
-// @version      3.3.0
+// @description  Auto-mute ads on YouTube TV using captions + heuristics. Now with adjustable confidence threshold slider in HUD to control mute sensitivity, confidence meter showing ad detection strength, manual mute button, faster unmute, and enhanced detection. Medicare/benefits ads weighted, program quorum, HUD, tabbed settings UI, caption visibility toggle, logs, and "Flag Incorrect State" button.
+// @version      3.4.0
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -70,6 +70,7 @@
     // Confidence Meter
     showConfidenceMeter:true,
     confidenceMeterStyle:'bar',  // 'bar', 'numeric', 'both'
+    confidenceThreshold:70,      // Mute when confidence >= this value (0-100)
 
     // Timing / CC loss
     muteOnNoCCDelayMs:180,   // lower/faster
@@ -284,11 +285,39 @@
       const filled = Math.round((confidence/100)*barWidth);
       const empty = barWidth - filled;
       const bar = '█'.repeat(filled) + '░'.repeat(empty);
-      const color = confidence>70?'#f85149':(confidence>40?'#d29922':'#3fb950');
+      const color = confidence>=S.confidenceThreshold?'#f85149':(confidence>40?'#d29922':'#3fb950');
       displayText += `\n<span style="color:${color}">▐${bar}▌</span> ${confidence}%`;
     }
 
-    NS.hudEl.innerHTML = displayText.replace(/\n/g,'<br>');
+    // Build HUD content with slider
+    let html = displayText.replace(/\n/g,'<br>');
+
+    // Add confidence threshold slider
+    if(S.showConfidenceMeter){
+      html += `
+        <div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.2);padding-top:8px;pointer-events:auto;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
+            <span style="color:#aaa;">Mute threshold:</span>
+            <input type="range" id="yttp-threshold-slider" min="0" max="100" value="${S.confidenceThreshold}"
+              style="width:100px;height:16px;cursor:pointer;accent-color:#1f6feb;">
+            <span id="yttp-threshold-value" style="min-width:32px;color:#fff;">${S.confidenceThreshold}%</span>
+          </div>
+        </div>`;
+    }
+
+    NS.hudEl.innerHTML = html;
+
+    // Attach slider event listener
+    const slider = NS.hudEl.querySelector('#yttp-threshold-slider');
+    if(slider){
+      slider.addEventListener('input',(e)=>{
+        const val = parseInt(e.target.value,10);
+        S.confidenceThreshold = val;
+        const valSpan = NS.hudEl.querySelector('#yttp-threshold-value');
+        if(valSpan) valSpan.textContent = val+'%';
+        saveSettings(S);
+      });
+    }
   }
   function scheduleHudVisibility(desired){if(NS.hudTimer)clearTimeout(NS.hudTimer);const tok=Symbol('hud');NS._hudDesiredToken=tok;
     NS.hudTimer=setTimeout(()=>{if(NS._hudDesiredToken!==tok)return;const vis=S.showHUD||(S.hudAutoOnMute&&desired);hudFadeTo(vis);},Math.max(0,S.hudAutoDelayMs|0));}
@@ -492,8 +521,11 @@
       return;
     }
 
-    // Enter/extend ad lock for ad-like verdicts
-    if(res.verdict==='AD_BREAK'||res.verdict==='AD_HARD'||res.verdict==='AD_BRAND_WITH_CONTEXT'||res.verdict==='AD_SIGNAL_SCORE'){
+    // Check confidence threshold for muting decisions
+    const meetsThreshold = currentConfidence >= S.confidenceThreshold;
+
+    // Enter/extend ad lock for ad-like verdicts (only if confidence meets threshold)
+    if(meetsThreshold && (res.verdict==='AD_BREAK'||res.verdict==='AD_HARD'||res.verdict==='AD_BRAND_WITH_CONTEXT'||res.verdict==='AD_SIGNAL_SCORE')){
       adLockUntil=Math.max(adLockUntil,t+S.minAdLockMs);
       programVotes=0; programQuorumCount=0; lastProgramGoodMs=0;
     }
@@ -520,10 +552,14 @@
       programVotes = (res.verdict==='PROGRAM'||res.verdict==='PROGRAM_ANCHOR')?programVotes:0;
     }
 
-    if(lockActive){
+    if(lockActive && meetsThreshold){
       shouldMute=true; reason='AD_LOCK';
+    }else if(lockActive && !meetsThreshold){
+      // In ad lock but confidence dropped below threshold - hold state but indicate
+      shouldMute=(lastMuteState===true);
+      reason='AD_LOCK_BELOW_THRESHOLD';
     }else{
-      if(res.verdict==='AD_BREAK'||res.verdict==='AD_HARD'||res.verdict==='AD_BRAND_WITH_CONTEXT'||res.verdict==='AD_SIGNAL_SCORE'){
+      if(meetsThreshold && (res.verdict==='AD_BREAK'||res.verdict==='AD_HARD'||res.verdict==='AD_BRAND_WITH_CONTEXT'||res.verdict==='AD_SIGNAL_SCORE')){
         shouldMute=true; reason=res.verdict; lastProgramGoodMs=0; programQuorumCount=0;
       }else if(captionsExist && !captionsBottomed){
         const votesOK = programVotes>=S.programVotesNeeded;
@@ -758,6 +794,13 @@
                 <option value="both">Both bar and numeric</option>
               </select>
             </label>
+            <label>Mute confidence threshold (0–100%)
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input id="confidenceThreshold" type="range" min="0" max="100" step="1" style="flex:1;height:20px;">
+                <span id="confidenceThresholdValue" style="min-width:40px;text-align:right;">70%</span>
+              </div>
+            </label>
+            <div style="font-size:11px;color:#888;">Only mute when ad confidence reaches or exceeds this threshold. Lower = more aggressive muting.</div>
           </div>
 
           <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
@@ -870,6 +913,11 @@
     panel.querySelector('#hudAutoOnMute').checked=S.hudAutoOnMute;
     panel.querySelector('#showConfidenceMeter').checked=S.showConfidenceMeter;
     panel.querySelector('#confidenceMeterStyle').value=S.confidenceMeterStyle||'bar';
+    panel.querySelector('#confidenceThreshold').value=S.confidenceThreshold;
+    panel.querySelector('#confidenceThresholdValue').textContent=S.confidenceThreshold+'%';
+    panel.querySelector('#confidenceThreshold').addEventListener('input',(e)=>{
+      panel.querySelector('#confidenceThresholdValue').textContent=e.target.value+'%';
+    });
     panel.querySelector('#hudAutoDelayMs').value=S.hudAutoDelayMs;
     panel.querySelector('#hudFadeMs').value=S.hudFadeMs;
     panel.querySelector('#hudSlidePx').value=S.hudSlidePx;
@@ -915,6 +963,7 @@
       S.hudAutoOnMute=panel.querySelector('#hudAutoOnMute').checked;
       S.showConfidenceMeter=panel.querySelector('#showConfidenceMeter').checked;
       S.confidenceMeterStyle=panel.querySelector('#confidenceMeterStyle').value;
+      S.confidenceThreshold=clampInt(panel.querySelector('#confidenceThreshold').value,0,100,DEFAULTS.confidenceThreshold);
       S.hudAutoDelayMs=clampInt(panel.querySelector('#hudAutoDelayMs').value,0,60000,DEFAULTS.hudAutoDelayMs);
       S.hudFadeMs=clampInt(panel.querySelector('#hudFadeMs').value,0,2000,DEFAULTS.hudFadeMs);
       S.hudSlidePx=clampInt(panel.querySelector('#hudSlidePx').value,0,50,DEFAULTS.hudSlidePx);
@@ -963,5 +1012,5 @@
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
-  log('Booted v3.3.0',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter});
+  log('Booted v3.4.0',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,confidenceThreshold:S.confidenceThreshold});
 })();
