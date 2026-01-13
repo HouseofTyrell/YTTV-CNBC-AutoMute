@@ -2,7 +2,7 @@
 // @name         YTTV Auto-Mute (v3.4.0: Confidence Threshold Slider)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using captions + heuristics. Now with adjustable confidence threshold slider in HUD to control mute sensitivity, confidence meter showing ad detection strength, manual mute button, faster unmute, and enhanced detection. Medicare/benefits ads weighted, program quorum, HUD, tabbed settings UI, caption visibility toggle, logs, and "Flag Incorrect State" button.
-// @version      3.4.0
+// @version      3.4.1
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
