@@ -261,7 +261,8 @@
     el.style.cssText=[
       'position:fixed','right:12px','bottom:52px','z-index:2147483647',
       'font:12px/1.3 system-ui,sans-serif','background:rgba(0,0,0,.72)','color:#fff',
-      'padding:8px 10px','border-radius:8px','max-width:360px','pointer-events:none','white-space:pre-wrap',
+      'padding:8px 10px','border-radius:8px','width:280px','pointer-events:none','white-space:pre-wrap',
+      'overflow:hidden','word-wrap:break-word',
       `opacity:0`,`transform:translateY(${S.hudSlidePx|0}px)`,
       `transition:opacity ${S.hudFadeMs|0}ms ease,transform ${S.hudFadeMs|0}ms ease`
     ].join(';');
@@ -478,11 +479,13 @@
     lastMuteState=shouldMute;
 
     const statusPrefix = manualMuteActive ? '[MANUAL MUTE] ' : (enabled?'':'[PAUSED] ');
+    // Truncate CC snippet for HUD display stability (max 60 chars)
+    const hudCcSnippet = info.ccSnippet ? (info.ccSnippet.length>60 ? info.ccSnippet.slice(0,57)+'…' : info.ccSnippet) : '';
     updateHUDText(
       statusPrefix+`${shouldMute?'MUTED':'UNMUTED'}\n`+
       `Reason: ${info.reason}\n`+
-      (info.match?`Match: "${info.match}"\n`:'' )+
-      (info.ccSnippet?`CC: "${info.ccSnippet}"`:'' ),
+      (info.match?`Match: "${info.match.length>30?info.match.slice(0,27)+'…':info.match}"\n`:'' )+
+      (hudCcSnippet?`CC: "${hudCcSnippet}"`:'' ),
       info.confidence || currentConfidence
     );
   }
