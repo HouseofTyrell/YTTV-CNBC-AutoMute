@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v3.4.0: Confidence Threshold Slider)
+// @name         YTTV Auto-Mute (v3.5.0: Compact HUD)
 // @namespace    http://tampermonkey.net/
-// @description  Auto-mute ads on YouTube TV using captions + heuristics. Now with adjustable confidence threshold slider in HUD to control mute sensitivity, confidence meter showing ad detection strength, manual mute button, faster unmute, and enhanced detection. Medicare/benefits ads weighted, program quorum, HUD, tabbed settings UI, caption visibility toggle, logs, and "Flag Incorrect State" button.
-// @version      3.4.1
+// @description  Auto-mute ads on YouTube TV using captions + heuristics. Compact bottom-center HUD with optional threshold slider, confidence meter, manual mute button, faster unmute, and enhanced detection. Medicare/benefits ads weighted, program quorum, tabbed settings UI, caption visibility toggle, logs, and "Flag Incorrect State" button.
+// @version      3.5.0
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -71,6 +71,7 @@
     showConfidenceMeter:true,
     confidenceMeterStyle:'bar',  // 'bar', 'numeric', 'both'
     confidenceThreshold:70,      // Mute when confidence >= this value (0-100)
+    showHudSlider:true,          // Show threshold slider on HUD (can disable to reduce HUD size)
 
     // Timing / CC loss
     muteOnNoCCDelayMs:180,   // lower/faster
@@ -259,51 +260,51 @@
     if(NS.hudEl)return;
     const el=document.createElement('div');
     el.style.cssText=[
-      'position:fixed','right:12px','bottom:120px','z-index:2147483647',
-      'font:12px/1.3 system-ui,sans-serif','background:rgba(0,0,0,.72)','color:#fff',
-      'padding:8px 10px','border-radius:8px','width:280px','pointer-events:none','white-space:pre-wrap',
-      'overflow:hidden','word-wrap:break-word',
-      `opacity:0`,`transform:translateY(${S.hudSlidePx|0}px)`,
+      'position:fixed','left:50%','bottom:80px','z-index:2147483647',
+      'font:11px/1.2 system-ui,sans-serif','background:rgba(0,0,0,.8)','color:#fff',
+      'padding:6px 10px','border-radius:6px','pointer-events:none','white-space:nowrap',
+      'overflow:hidden',
+      `opacity:0`,`transform:translateX(-50%) translateY(${S.hudSlidePx|0}px)`,
       `transition:opacity ${S.hudFadeMs|0}ms ease,transform ${S.hudFadeMs|0}ms ease`
     ].join(';');
     el.textContent=NS.hudText||'';document.documentElement.appendChild(el);NS.hudEl=el;
   }
   function hudFadeTo(v){ensureHUD();if(!NS.hudEl)return; if(NS.hudAnimTimer){clearTimeout(NS.hudAnimTimer);NS.hudAnimTimer=null;}
-    NS.hudEl.style.opacity=v?'1':'0';NS.hudEl.style.transform=v?'translateY(0px)':`translateY(${S.hudSlidePx|0}px)`;}
+    NS.hudEl.style.opacity=v?'1':'0';NS.hudEl.style.transform=v?`translateX(-50%) translateY(0px)`:`translateX(-50%) translateY(${S.hudSlidePx|0}px)`;}
   function updateHUDText(t,confidence){
     NS.hudText=t;
     if(!NS.hudEl) return;
 
-    let displayText = t;
+    // Build compact single-line status
+    const parts = t.split('\n').filter(Boolean);
+    const status = parts[0] || '';
+    const reason = parts[1] ? parts[1].replace('Reason: ','') : '';
 
-    // Add confidence meter if enabled
-    if(S.showConfidenceMeter && (S.confidenceMeterStyle==='numeric'||S.confidenceMeterStyle==='both')){
-      displayText += `\n\nAd Confidence: ${confidence}%`;
-    }
+    let html = `<span style="font-weight:600">${status}</span>`;
+    if(reason) html += ` <span style="color:#aaa;margin:0 4px;">·</span> ${reason}`;
 
-    if(S.showConfidenceMeter && (S.confidenceMeterStyle==='bar'||S.confidenceMeterStyle==='both')){
-      const barWidth = 30;
-      const filled = Math.round((confidence/100)*barWidth);
-      const empty = barWidth - filled;
-      const bar = '█'.repeat(filled) + '░'.repeat(empty);
-      const color = confidence>=S.confidenceThreshold?'#f85149':(confidence>40?'#d29922':'#3fb950');
-      displayText += `\n<span style="color:${color}">▐${bar}▌</span> ${confidence}%`;
-    }
-
-    // Build HUD content with slider
-    let html = displayText.replace(/\n/g,'<br>');
-
-    // Add confidence threshold slider
+    // Add compact confidence meter if enabled
     if(S.showConfidenceMeter){
-      html += `
-        <div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.2);padding-top:8px;pointer-events:auto;">
-          <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
-            <span style="color:#aaa;">Mute threshold:</span>
-            <input type="range" id="yttp-threshold-slider" min="0" max="100" value="${S.confidenceThreshold}"
-              style="width:100px;height:16px;cursor:pointer;accent-color:#1f6feb;">
-            <span id="yttp-threshold-value" style="min-width:32px;color:#fff;">${S.confidenceThreshold}%</span>
-          </div>
-        </div>`;
+      const color = confidence>=S.confidenceThreshold?'#f85149':(confidence>40?'#d29922':'#3fb950');
+      if(S.confidenceMeterStyle==='bar'||S.confidenceMeterStyle==='both'){
+        const barWidth = 15;
+        const filled = Math.round((confidence/100)*barWidth);
+        const empty = barWidth - filled;
+        const bar = '█'.repeat(filled) + '░'.repeat(empty);
+        html += ` <span style="color:#aaa;margin:0 4px;">·</span> <span style="color:${color}">${bar}</span> ${confidence}%`;
+      } else {
+        html += ` <span style="color:#aaa;margin:0 4px;">·</span> <span style="color:${color}">${confidence}%</span>`;
+      }
+    }
+
+    // Add threshold slider only if enabled
+    if(S.showConfidenceMeter && S.showHudSlider){
+      html += `<span style="margin-left:8px;pointer-events:auto;display:inline-flex;align-items:center;gap:4px;">
+        <span style="color:#888;font-size:10px;">Thr:</span>
+        <input type="range" id="yttp-threshold-slider" min="0" max="100" value="${S.confidenceThreshold}"
+          style="width:60px;height:12px;cursor:pointer;accent-color:#1f6feb;vertical-align:middle;">
+        <span id="yttp-threshold-value" style="color:#fff;font-size:10px;">${S.confidenceThreshold}%</span>
+      </span>`;
     }
 
     NS.hudEl.innerHTML = html;
@@ -790,6 +791,7 @@
           <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
             <div style="font-weight:600;font-size:13px;">Confidence Meter</div>
             <label><input type="checkbox" id="showConfidenceMeter"> Show confidence meter</label>
+            <label><input type="checkbox" id="showHudSlider"> Show threshold slider on HUD</label>
             <label>Confidence meter style
               <select id="confidenceMeterStyle" style="${input}">
                 <option value="bar">Bar only</option>
@@ -915,6 +917,7 @@
     panel.querySelector('#showHUD').checked=S.showHUD;
     panel.querySelector('#hudAutoOnMute').checked=S.hudAutoOnMute;
     panel.querySelector('#showConfidenceMeter').checked=S.showConfidenceMeter;
+    panel.querySelector('#showHudSlider').checked=S.showHudSlider;
     panel.querySelector('#confidenceMeterStyle').value=S.confidenceMeterStyle||'bar';
     panel.querySelector('#confidenceThreshold').value=S.confidenceThreshold;
     panel.querySelector('#confidenceThresholdValue').textContent=S.confidenceThreshold+'%';
@@ -965,6 +968,7 @@
       S.showHUD=panel.querySelector('#showHUD').checked;
       S.hudAutoOnMute=panel.querySelector('#hudAutoOnMute').checked;
       S.showConfidenceMeter=panel.querySelector('#showConfidenceMeter').checked;
+      S.showHudSlider=panel.querySelector('#showHudSlider').checked;
       S.confidenceMeterStyle=panel.querySelector('#confidenceMeterStyle').value;
       S.confidenceThreshold=clampInt(panel.querySelector('#confidenceThreshold').value,0,100,DEFAULTS.confidenceThreshold);
       S.hudAutoDelayMs=clampInt(panel.querySelector('#hudAutoDelayMs').value,0,60000,DEFAULTS.hudAutoDelayMs);
@@ -1015,5 +1019,5 @@
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
-  log('Booted v3.4.0',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,confidenceThreshold:S.confidenceThreshold});
+  log('Booted v3.5.0',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,confidenceThreshold:S.confidenceThreshold,hudSlider:S.showHudSlider});
 })();
