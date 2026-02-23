@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v3.5.0: Compact HUD)
+// @name         YTTV Auto-Mute (v4.0.0: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
-// @description  Auto-mute ads on YouTube TV using captions + heuristics. Compact bottom-center HUD with optional threshold slider, confidence meter, manual mute button, faster unmute, and enhanced detection. Medicare/benefits ads weighted, program quorum, tabbed settings UI, caption visibility toggle, logs, and "Flag Incorrect State" button.
-// @version      3.5.0
+// @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
+// @version      4.0.0
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -25,13 +25,13 @@
     if(NS.intervalId)clearInterval(NS.intervalId);
     if(NS.ccAttachTimer)clearInterval(NS.ccAttachTimer);
     if(NS.ccObserver?.disconnect)NS.ccObserver.disconnect();
-    if(NS.routeObserver?.disconnect)NS.routeObserver.disconnect();
+    // routeObserver removed — using History API interception
     if(NS.hudTimer)clearTimeout(NS.hudTimer);
     if(NS.hudAnimTimer)clearTimeout(NS.hudAnimTimer);
   }catch{}
   Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,routeObserver:null,
     hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
-    flagBtn:null,btnContainer:null,settingsBtn:null,muteBtn:null,_lastUrl:location.href});
+    flagBtn:null,btnContainer:null,settingsBtn:null,muteBtn:null,_lastUrl:location.href,_hudBuilt:false});
 
   /* ---------- STORAGE SHIMS ---------- */
   const hasGM_get = typeof GM_getValue==='function';
@@ -173,13 +173,6 @@
   let S=loadSettings();
 
   const toLines=(t)=>(t||'').split('\n').map(s=>s.trim()).filter(Boolean);
-  let HARD_AD_PHRASES = toLines(S.hardPhrases);
-  let BRAND_TERMS     = toLines(S.brandTerms);
-  let AD_CONTEXT      = toLines(S.adContext);
-  let ALLOW_PHRASES   = toLines(Array.isArray(S.allowPhrases)?S.allowPhrases.join('\n'):S.allowPhrases);
-  let BREAK_PHRASES   = toLines(Array.isArray(S.breakPhrases)?S.breakPhrases.join('\n'):S.breakPhrases);
-  let CTA_TERMS       = Array.isArray(S.ctaTerms)?S.ctaTerms.map(s=>s.toLowerCase()):toLines(S.ctaTerms?.join?.('\n')||'');
-  let OFFER_TERMS     = Array.isArray(S.offerTerms)?S.offerTerms.map(s=>s.toLowerCase()):toLines(S.offerTerms?.join?.('\n')||'');
 
   /* ---------- VERDICT ENUM ---------- */
   const Verdict = Object.freeze({
@@ -194,6 +187,36 @@
   const isAdVerdict = (v) => v === Verdict.AD_HARD || v === Verdict.AD_BREAK ||
     v === Verdict.AD_BRAND_WITH_CONTEXT || v === Verdict.AD_SIGNAL_SCORE;
   const isProgramVerdict = (v) => v === Verdict.PROGRAM || v === Verdict.PROGRAM_ANCHOR;
+
+  /* ---------- WEIGHT CONSTANTS ---------- */
+  const WEIGHT = Object.freeze({
+    BASE: 50,
+    HARD_PHRASE: 40,
+    BREAK_CUE: 38,
+    BRAND_DETECTED: 15,
+    AD_CONTEXT: 10,
+    CTA_DETECTED: 8,
+    OFFER_DETECTED: 8,
+    URL_PRESENT: 10,
+    PHONE_PRESENT: 10,
+    IMPERATIVE_VOICE: 8,
+    SHORT_PUNCHY: 6,
+    CAPS_HEAVY: 6,
+    PUNCT_HEAVY: 4,
+    PRICE_MENTION: 5,
+    CAPTION_LOSS_MAX: 18,
+    CAPTION_BOTTOMED: 4,
+    PROGRAM_ALLOW: -45,
+    RETURN_FROM_BREAK: -42,
+    ANCHOR_NAME: -28,
+    PROGRAM_ANCHOR: -25,
+    GUEST_INTRO: -22,
+    SEGMENT_NAME: -18,
+    CONVERSATIONAL: -12,
+    THIRD_PERSON: -8,
+    LOCK_FLOOR: 65,
+    QUORUM_REDUCTION_PER: 4,
+  });
 
   /* ---------- STATE ---------- */
   const log=(...a)=>{if(S.debug)console.log('[YTTV-Mute]',...a);};
@@ -245,76 +268,308 @@
 
   const URL_RE=/\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i;
   const PHONE_RE=/\b(?:\d{3}[-\s.]?\d{3}[-\s.]?\d{4})\b/;
-  const DOLLAR_RE=/\$\s?\d/;
-  const PER_RE=/\b\d+\s?(?:per|\/)\s?(?:month|mo|yr|year)\b/i;
 
-  /* ---------- ADDITIONAL AD INDICATORS ---------- */
-  function analyzeTextFeatures(text){
-    if(!text) return {capsRatio:0,punctDensity:0,shortText:false,priceCount:0};
+  /* ---------- PHRASE INDEX ---------- */
+  const PhraseIndex = {
+    _compiled: {},
+    lists: {},
 
-    const upperCount = (text.match(/[A-Z]/g)||[]).length;
-    const letterCount = (text.match(/[a-zA-Z]/g)||[]).length;
-    const capsRatio = letterCount>0 ? upperCount/letterCount : 0;
+    rebuild(settings) {
+      const norm = (val) => {
+        const raw = Array.isArray(val) ? val.join('\n') : (val || '');
+        return raw.split('\n').map(s => s.trim().toLowerCase()).filter(Boolean);
+      };
+      const compile = (phrases) => {
+        if (!phrases.length) return null;
+        const escaped = phrases.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        return new RegExp('(' + escaped.join('|') + ')', 'i');
+      };
 
-    const punctCount = (text.match(/[!?]/g)||[]).length;
-    const punctDensity = text.length>0 ? punctCount/text.length : 0;
+      this.lists = {
+        hard: norm(settings.hardPhrases),
+        brand: norm(settings.brandTerms),
+        adContext: norm(settings.adContext),
+        cta: norm(settings.ctaTerms),
+        offer: norm(settings.offerTerms),
+        allow: norm(settings.allowPhrases),
+        break_: norm(settings.breakPhrases),
+        anchor: norm(settings.anchorNames || []),
+        segment: norm(settings.segmentNames || []),
+        returnBreak: norm(settings.returnFromBreakPhrases || []),
+      };
 
-    const shortText = text.length>0 && text.length<50;
+      for (const [key, list] of Object.entries(this.lists)) {
+        this._compiled[key] = compile(list);
+      }
+    },
 
-    const priceMatches = text.match(/\$\d+|\d+\s?(?:dollars?|cents?)/gi)||[];
-    const priceCount = priceMatches.length;
+    match(category, text) {
+      const re = this._compiled[category];
+      if (!re) return null;
+      const m = text.match(re);
+      return m ? m[1] : null;
+    },
 
-    return {capsRatio,punctDensity,shortText,priceCount};
+    matchAll(category, text) {
+      const re = this._compiled[category];
+      if (!re) return [];
+      const globalRe = new RegExp(re.source, 'gi');
+      const matches = [];
+      let m;
+      while ((m = globalRe.exec(text)) !== null) matches.push(m[1]);
+      return matches;
+    }
+  };
+  PhraseIndex.rebuild(S);
+
+  /* ---------- TEXT ANALYZER ---------- */
+  const TextAnalyzer = {
+    analyze(text) {
+      if (!text) return { capsRatio: 0, punctDensity: 0, shortText: false, priceCount: 0, wordCount: 0 };
+      let upper = 0, letter = 0, punct = 0, wordCount = 0, inWord = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text.charCodeAt(i);
+        if (c >= 65 && c <= 90) { upper++; letter++; }
+        else if (c >= 97 && c <= 122) { letter++; }
+        else if (c === 33 || c === 63) { punct++; }
+        const isAlpha = (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57);
+        if (isAlpha && !inWord) { wordCount++; inWord = true; }
+        else if (!isAlpha) { inWord = false; }
+      }
+      const priceCount = (text.match(/\$\d+|\d+\s?(?:dollars?|cents?)/gi) || []).length;
+      return {
+        capsRatio: letter > 0 ? upper / letter : 0,
+        punctDensity: text.length > 0 ? punct / text.length : 0,
+        shortText: text.length > 0 && text.length < 50,
+        priceCount,
+        wordCount,
+      };
+    },
+
+    imperativeScore(text) {
+      const words = text.toLowerCase().split(/\s+/);
+      if (words.length < 3) return 0;
+      const pronouns = new Set(['you', 'your', "you're", 'yourself']);
+      const imperatives = new Set(['get', 'call', 'visit', 'try', 'ask', 'switch', 'start', 'save', 'protect', 'discover', 'order', 'apply', 'enroll', 'join', 'claim']);
+      let count = 0;
+      for (const w of words) {
+        if (pronouns.has(w) || imperatives.has(w)) count++;
+      }
+      return count / words.length;
+    },
+
+    conversationalScore(text) {
+      const words = text.toLowerCase().split(/\s+/);
+      if (words.length < 5) return 0;
+      const thirdPerson = new Set(['they', 'their', 'them', 'the company', 'analysts', 'investors', 'the market', 'the stock']);
+      const analytical = new Set(['reported', 'expects', 'estimates', 'revenue', 'growth', 'decline', 'forecast', 'quarter', 'year-over-year', 'consensus', 'guidance']);
+      let count = 0;
+      for (const w of words) {
+        if (thirdPerson.has(w) || analytical.has(w)) count++;
+      }
+      return count / words.length;
+    }
+  };
+
+  /* ---------- SIGNAL COLLECTOR ---------- */
+  const SignalCollector = {
+    signals: [],
+    register(name, fn) { this.signals.push({ name, fn }); },
+    collectAll(ccText, env) {
+      const results = [];
+      for (const s of this.signals) {
+        const r = s.fn(ccText, env);
+        if (r) results.push({ source: s.name, ...r });
+      }
+      return results;
+    }
+  };
+
+  // --- Ad-leaning signals ---
+  SignalCollector.register('hardPhrase', (text) => {
+    const match = PhraseIndex.match('hard', text);
+    return match ? { weight: WEIGHT.HARD_PHRASE, label: 'Hard ad phrase', match } : null;
+  });
+
+  SignalCollector.register('breakCue', (text) => {
+    const match = PhraseIndex.match('break_', text);
+    return match ? { weight: WEIGHT.BREAK_CUE, label: 'Break cue', match } : null;
+  });
+
+  SignalCollector.register('brandDetected', (text, env) => {
+    const match = PhraseIndex.match('brand', text);
+    if (!match) return null;
+    if (env.guestIntroDetected) return null;
+    const w = (State.adLockUntil > Date.now()) ? WEIGHT.BRAND_DETECTED : Math.round(WEIGHT.BRAND_DETECTED * 0.5);
+    return { weight: w, label: 'Brand detected', match };
+  });
+
+  SignalCollector.register('adContext', (text) => {
+    const match = PhraseIndex.match('adContext', text);
+    if (!match && !URL_RE.test(text) && !PHONE_RE.test(text)) return null;
+    return { weight: WEIGHT.AD_CONTEXT, label: 'Ad context', match: match || 'url/phone' };
+  });
+
+  SignalCollector.register('ctaDetected', (text) => {
+    const match = PhraseIndex.match('cta', text);
+    return match ? { weight: WEIGHT.CTA_DETECTED, label: 'CTA', match } : null;
+  });
+
+  SignalCollector.register('offerDetected', (text) => {
+    const match = PhraseIndex.match('offer', text);
+    return match ? { weight: WEIGHT.OFFER_DETECTED, label: 'Offer', match } : null;
+  });
+
+  SignalCollector.register('urlOrPhone', (text) => {
+    const hasUrl = URL_RE.test(text);
+    const hasPhone = PHONE_RE.test(text);
+    if (!hasUrl && !hasPhone) return null;
+    const w = (hasUrl ? WEIGHT.URL_PRESENT : 0) + (hasPhone ? WEIGHT.PHONE_PRESENT : 0);
+    return { weight: w, label: hasUrl && hasPhone ? 'URL+Phone' : hasUrl ? 'URL' : 'Phone', match: null };
+  });
+
+  SignalCollector.register('textFeatures', (text, env) => {
+    const f = env.textFeatures;
+    let w = 0, parts = [];
+    if (f.capsRatio > 0.3) { w += WEIGHT.CAPS_HEAVY; parts.push('caps'); }
+    if (f.punctDensity > 0.05) { w += WEIGHT.PUNCT_HEAVY; parts.push('punct'); }
+    if (f.priceCount > 0) { w += f.priceCount * WEIGHT.PRICE_MENTION; parts.push('price'); }
+    return w > 0 ? { weight: w, label: 'Text features: ' + parts.join('+'), match: null } : null;
+  });
+
+  SignalCollector.register('imperativeVoice', (text, env) => {
+    const score = env.imperativeScore;
+    if (score <= 0.08) return null;
+    const w = Math.min(WEIGHT.IMPERATIVE_VOICE, Math.round(score * 100));
+    return { weight: w, label: 'Imperative voice', match: `ratio=${score.toFixed(2)}` };
+  });
+
+  SignalCollector.register('shortPunchyLines', () => {
+    const win = State.captionWindow;
+    if (win.length < 3) return null;
+    const avgLen = win.reduce((s, l) => s + l.length, 0) / win.length;
+    if (avgLen >= 50) return null;
+    return { weight: WEIGHT.SHORT_PUNCHY, label: 'Short punchy lines', match: `avgLen=${Math.round(avgLen)}` };
+  });
+
+  SignalCollector.register('captionLoss', (text, env) => {
+    if (env.captionsExist) { State.noCcConsec = 0; return null; }
+    State.noCcConsec++;
+    if (env.noCcMs < S.muteOnNoCCDelayMs || State.noCcConsec < S.noCcHitsToMute) return null;
+    const w = Math.min(WEIGHT.CAPTION_LOSS_MAX, Math.round(env.noCcMs / 400));
+    return { weight: w, label: 'Caption loss', match: `noCcMs=${env.noCcMs}` };
+  });
+
+  SignalCollector.register('captionBottomed', (text, env) => {
+    if (!env.captionsBottomed) { State.bottomConsec = 0; return null; }
+    State.bottomConsec++;
+    return State.bottomConsec >= 2 ? { weight: WEIGHT.CAPTION_BOTTOMED, label: 'Bottom captions', match: null } : null;
+  });
+
+  // --- Program-leaning signals ---
+  SignalCollector.register('programAllow', (text) => {
+    const match = PhraseIndex.match('allow', text);
+    return match ? { weight: WEIGHT.PROGRAM_ALLOW, label: 'Program allow', match } : null;
+  });
+
+  SignalCollector.register('returnFromBreak', (text) => {
+    const match = PhraseIndex.match('returnBreak', text);
+    return match ? { weight: WEIGHT.RETURN_FROM_BREAK, label: 'Return from break', match } : null;
+  });
+
+  SignalCollector.register('anchorName', (text) => {
+    const match = PhraseIndex.match('anchor', text);
+    return match ? { weight: WEIGHT.ANCHOR_NAME, label: 'Anchor name', match } : null;
+  });
+
+  SignalCollector.register('programAnchor', (text) => {
+    const m = PROGRAM_ANCHOR_RE.exec(text);
+    return m ? { weight: WEIGHT.PROGRAM_ANCHOR, label: 'Program anchor', match: m[1] } : null;
+  });
+
+  SignalCollector.register('guestIntro', (text, env) => {
+    if (!env.guestIntroDetected) return null;
+    return { weight: WEIGHT.GUEST_INTRO, label: 'Guest intro', match: env.guestIntroMatch };
+  });
+
+  SignalCollector.register('segmentName', (text) => {
+    const match = PhraseIndex.match('segment', text);
+    return match ? { weight: WEIGHT.SEGMENT_NAME, label: 'Segment name', match } : null;
+  });
+
+  SignalCollector.register('conversational', (text, env) => {
+    const score = env.conversationalScore;
+    const longLine = text.length > 80;
+    if (score <= 0.05 && !longLine) return null;
+    let w = 0;
+    if (score > 0.05) w += Math.min(Math.abs(WEIGHT.CONVERSATIONAL), Math.round(score * 120));
+    if (longLine) w += Math.abs(WEIGHT.THIRD_PERSON);
+    return { weight: -w, label: 'Conversational', match: `score=${score.toFixed(2)},len=${text.length}` };
+  });
+
+  /* ---------- CONFIDENCE SCORER ---------- */
+  function calculateConfidence(signalResults) {
+    let score = WEIGHT.BASE;
+    for (const signal of signalResults) {
+      score += signal.weight;
+    }
+    if (State.adLockUntil > Date.now() && score < WEIGHT.LOCK_FLOOR) {
+      score = WEIGHT.LOCK_FLOOR;
+    }
+    score -= State.programQuorumCount * WEIGHT.QUORUM_REDUCTION_PER;
+    return Math.max(0, Math.min(100, Math.round(score)));
   }
 
-  /* ---------- CONFIDENCE CALCULATION ---------- */
-  function calculateConfidence(verdict, matched, ccText, {captionsExist,captionsBottomed,noCcMs}){
-    let confidence = 50; // Start neutral
-    const features = analyzeTextFeatures(ccText);
+  /* ---------- DECISION ENGINE ---------- */
+  function decide(confidence, signalResults) {
+    const t = Date.now();
 
-    // Verdict-based confidence
-    if(verdict===Verdict.AD_HARD){
-      confidence = 95;
-      if(matched && (matched.includes('medicare')||matched.includes('enrollment')||matched.includes('licensed agent'))){
-        confidence = 98;
-      }
-    }
-    else if(verdict===Verdict.AD_BREAK) confidence = 90;
-    else if(verdict===Verdict.AD_BRAND_WITH_CONTEXT) confidence = 85;
-    else if(verdict===Verdict.AD_SIGNAL_SCORE){
-      confidence = 70 + Math.min(20, noCcMs/200);
-    }
-    else if(verdict===Verdict.PROGRAM_ALLOW) confidence = 5;
-    else if(verdict===Verdict.PROGRAM_ANCHOR) confidence = 15;
-    else if(verdict===Verdict.PROGRAM) confidence = 30;
+    if (State.manualMuteActive) return { shouldMute: true, reason: 'MANUAL_MUTE' };
+    if (!State.enabled) return { shouldMute: false, reason: 'DISABLED' };
+    if (t < State.manualOverrideUntil) return { shouldMute: false, reason: 'MANUAL_OVERRIDE' };
 
-    // Text feature adjustments
-    if(features.capsRatio>0.3) confidence += 8; // Lots of caps = likely ad
-    if(features.punctDensity>0.05) confidence += 5; // Exclamation/question marks
-    if(features.shortText && confidence>50) confidence += 5; // Short punchy text in ad context
-    if(features.priceCount>0) confidence += features.priceCount*5; // Multiple prices mentioned
+    const meetsThreshold = confidence >= S.confidenceThreshold;
+    const hasStrongProgram = signalResults.some(s =>
+      s.source === 'programAllow' || s.source === 'returnFromBreak');
 
-    // URL/phone presence
-    if(ccText){
-      if(URL_RE.test(ccText)) confidence += 10;
-      if(PHONE_RE.test(ccText)) confidence += 10;
+    if (hasStrongProgram) {
+      State.adLockUntil = 0;
+      State.programVotes = S.programVotesNeeded;
+      State.programQuorumCount = S.programQuorumLines;
+      return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
     }
 
-    // Caption behavior
-    if(!captionsExist && noCcMs>500) confidence += Math.min(15, noCcMs/400);
-    if(captionsBottomed) confidence += 5;
-
-    // Lock state affects confidence display
-    const lockActive = Date.now() < State.adLockUntil;
-    if(lockActive && confidence<70) confidence = 70;
-
-    // Program quorum progress (reduces confidence)
-    if(State.programQuorumCount>0){
-      confidence -= State.programQuorumCount*5;
+    if (meetsThreshold && confidence >= 75) {
+      State.adLockUntil = Math.max(State.adLockUntil, t + S.minAdLockMs);
+      State.programVotes = 0;
+      State.programQuorumCount = 0;
+      State.lastProgramGoodMs = 0;
     }
 
-    // Clamp to 0-100
-    return Math.max(0, Math.min(100, Math.round(confidence)));
+    const lockActive = t < State.adLockUntil;
+
+    const programSignal = signalResults.some(s => s.weight < -10);
+    if (programSignal && !lockActive) {
+      State.programVotes = Math.min(S.programVotesNeeded, State.programVotes + 1);
+      State.programQuorumCount = Math.min(S.programQuorumLines, State.programQuorumCount + 1);
+      if (!State.lastProgramGoodMs) State.lastProgramGoodMs = t;
+    } else if (meetsThreshold) {
+      State.programQuorumCount = 0;
+      State.programVotes = 0;
+      State.lastProgramGoodMs = 0;
+    }
+
+    if (lockActive && meetsThreshold) return { shouldMute: true, reason: 'AD_LOCK' };
+    if (lockActive) return { shouldMute: State.lastMuteState === true, reason: 'AD_LOCK_FADING' };
+
+    if (meetsThreshold) return { shouldMute: true, reason: 'CONFIDENCE_HIGH' };
+
+    const votesOK = State.programVotes >= S.programVotesNeeded;
+    const quorumOK = State.programQuorumCount >= S.programQuorumLines;
+    const timeOK = State.lastProgramGoodMs && (t - State.lastProgramGoodMs >= S.unmuteDebounceMs);
+    if (votesOK && quorumOK && timeOK) return { shouldMute: false, reason: 'PROGRAM_QUORUM_MET' };
+
+    return { shouldMute: State.lastMuteState === true, reason: 'BUILDING_QUORUM' };
   }
 
   /* ---------- HUD ---------- */
@@ -333,54 +588,73 @@
   }
   function hudFadeTo(v){ensureHUD();if(!NS.hudEl)return; if(NS.hudAnimTimer){clearTimeout(NS.hudAnimTimer);NS.hudAnimTimer=null;}
     NS.hudEl.style.opacity=v?'1':'0';NS.hudEl.style.transform=v?`translateX(-50%) translateY(0px)`:`translateX(-50%) translateY(${S.hudSlidePx|0}px)`;}
-  function updateHUDText(t,confidence){
-    NS.hudText=t;
-    if(!NS.hudEl) return;
-
-    // Build compact single-line status
-    const parts = t.split('\n').filter(Boolean);
-    const status = parts[0] || '';
-    const reason = parts[1] ? parts[1].replace('Reason: ','') : '';
-
-    let html = `<span style="font-weight:600">${status}</span>`;
-    if(reason) html += ` <span style="color:#aaa;margin:0 4px;">·</span> ${reason}`;
-
-    // Add compact confidence meter if enabled
-    if(S.showConfidenceMeter){
-      const color = confidence>=S.confidenceThreshold?'#f85149':(confidence>40?'#d29922':'#3fb950');
-      if(S.confidenceMeterStyle==='bar'||S.confidenceMeterStyle==='both'){
-        const barWidth = 15;
-        const filled = Math.round((confidence/100)*barWidth);
-        const empty = barWidth - filled;
-        const bar = '█'.repeat(filled) + '░'.repeat(empty);
-        html += ` <span style="color:#aaa;margin:0 4px;">·</span> <span style="color:${color}">${bar}</span> ${confidence}%`;
-      } else {
-        html += ` <span style="color:#aaa;margin:0 4px;">·</span> <span style="color:${color}">${confidence}%</span>`;
-      }
-    }
-
-    // Add threshold slider only if enabled
-    if(S.showConfidenceMeter && S.showHudSlider){
-      html += `<span style="margin-left:8px;pointer-events:auto;display:inline-flex;align-items:center;gap:4px;">
-        <span style="color:#888;font-size:10px;">Thr:</span>
-        <input type="range" id="yttp-threshold-slider" min="0" max="100" value="${S.confidenceThreshold}"
-          style="width:60px;height:12px;cursor:pointer;accent-color:#1f6feb;vertical-align:middle;">
-        <span id="yttp-threshold-value" style="color:#fff;font-size:10px;">${S.confidenceThreshold}%</span>
-      </span>`;
-    }
-
-    NS.hudEl.innerHTML = html;
-
-    // Attach slider event listener
-    const slider = NS.hudEl.querySelector('#yttp-threshold-slider');
-    if(slider){
-      slider.addEventListener('input',(e)=>{
-        const val = parseInt(e.target.value,10);
+  let _hudBuilt = false;
+  const _hudRefs = {};
+  function _buildHUDInner() {
+    if (_hudBuilt || !NS.hudEl) return;
+    NS.hudEl.innerHTML = `<span id="yttp-hud-status" style="font-weight:600"></span>` +
+      `<span style="color:#aaa;margin:0 4px;">·</span><span id="yttp-hud-reason"></span>` +
+      `<span style="color:#aaa;margin:0 4px;">·</span><span id="yttp-hud-meter"></span>` +
+      `<span id="yttp-hud-slider-wrap" style="margin-left:8px;pointer-events:auto;display:inline-flex;align-items:center;gap:4px;">` +
+        `<span style="color:#888;font-size:10px;">Thr:</span>` +
+        `<input type="range" id="yttp-threshold-slider" min="0" max="100" value="${S.confidenceThreshold}" style="width:60px;height:12px;cursor:pointer;accent-color:#1f6feb;vertical-align:middle;">` +
+        `<span id="yttp-threshold-value" style="color:#fff;font-size:10px;">${S.confidenceThreshold}%</span>` +
+      `</span>` +
+      `<span id="yttp-hud-signals" style="color:#888;margin-left:6px;font-size:10px;"></span>`;
+    _hudRefs.status = NS.hudEl.querySelector('#yttp-hud-status');
+    _hudRefs.reason = NS.hudEl.querySelector('#yttp-hud-reason');
+    _hudRefs.meter = NS.hudEl.querySelector('#yttp-hud-meter');
+    _hudRefs.sliderWrap = NS.hudEl.querySelector('#yttp-hud-slider-wrap');
+    _hudRefs.slider = NS.hudEl.querySelector('#yttp-threshold-slider');
+    _hudRefs.sliderVal = NS.hudEl.querySelector('#yttp-threshold-value');
+    _hudRefs.signals = NS.hudEl.querySelector('#yttp-hud-signals');
+    if (_hudRefs.slider) {
+      _hudRefs.slider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
         S.confidenceThreshold = val;
-        const valSpan = NS.hudEl.querySelector('#yttp-threshold-value');
-        if(valSpan) valSpan.textContent = val+'%';
+        if (_hudRefs.sliderVal) _hudRefs.sliderVal.textContent = val + '%';
         saveSettings(S);
       });
+    }
+    _hudBuilt = true;
+  }
+  function updateHUDText(t, confidence, signals) {
+    NS.hudText = t;
+    if (!NS.hudEl) return;
+    _buildHUDInner();
+
+    const parts = t.split('\n').filter(Boolean);
+    const status = parts[0] || '';
+    const reason = parts[1] ? parts[1].replace('Reason: ', '') : '';
+
+    if (_hudRefs.status) _hudRefs.status.textContent = status;
+    if (_hudRefs.reason) _hudRefs.reason.textContent = reason;
+
+    if (S.showConfidenceMeter && _hudRefs.meter) {
+      const color = confidence >= S.confidenceThreshold ? '#f85149' : (confidence > 40 ? '#d29922' : '#3fb950');
+      if (S.confidenceMeterStyle === 'bar' || S.confidenceMeterStyle === 'both') {
+        const barWidth = 15;
+        const filled = Math.round((confidence / 100) * barWidth);
+        _hudRefs.meter.textContent = '\u2588'.repeat(filled) + '\u2591'.repeat(barWidth - filled) + ' ' + confidence + '%';
+      } else {
+        _hudRefs.meter.textContent = confidence + '%';
+      }
+      _hudRefs.meter.style.color = color;
+      _hudRefs.meter.style.display = '';
+    } else if (_hudRefs.meter) {
+      _hudRefs.meter.style.display = 'none';
+    }
+
+    if (_hudRefs.sliderWrap) {
+      _hudRefs.sliderWrap.style.display = (S.showConfidenceMeter && S.showHudSlider) ? '' : 'none';
+    }
+
+    // Show top 3 signals
+    if (_hudRefs.signals && S.showHUD && signals && signals.length > 0) {
+      const topSignals = [...signals].sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight)).slice(0, 3);
+      _hudRefs.signals.textContent = topSignals.map(s => `${s.weight > 0 ? '+' : ''}${s.weight} ${s.source}`).join(', ');
+    } else if (_hudRefs.signals) {
+      _hudRefs.signals.textContent = '';
     }
   }
   function scheduleHudVisibility(desired){if(NS.hudTimer)clearTimeout(NS.hudTimer);const tok=Symbol('hud');NS._hudDesiredToken=tok;
@@ -458,61 +732,11 @@
     downloadText(name,window._captions_log.join('\n')||'(no captions logged yet)');
   }
 
-  /* ---------- DETECTION ---------- */
-  const containsAny=(txt,arr)=>{for(const t of arr){if(t&&txt.includes(t))return t;}return null;};
-
-  // Program anchors: strong indicators the show is on (beyond general "program")
+  /* ---------- PROGRAM ANCHOR REGEX ---------- */
   const PROGRAM_ANCHOR_RE = new RegExp(
     String.raw`\b(joins us now|joining me now|welcome to|welcome back|we'?re back|back with|back to you|from washington|live (?:in|at)|earnings|beat estimates|raised guidance|analyst|conference call|tariffs?|supreme court|breaking news|economic data|cpi|ppi|jobs report|nonfarm payrolls|market (?:breadth|reaction)|s&p|nasdaq|dow|chief investment officer|portfolio manager|senior analyst|ceo|cfo|chair|closing bell|overtime)\b`,
     'i'
   );
-
-  function isProgramAnchor(text){ return PROGRAM_ANCHOR_RE.test(text); }
-
-  // Non-text ad signal with consecutive gates
-  function nonTextAdSignal({captionsExist,captionsBottomed,noCcMs}){
-    if(!captionsExist && noCcMs>S.muteOnNoCCDelayMs){ State.noCcConsec++; } else { State.noCcConsec=0; }
-    if(captionsBottomed){ State.bottomConsec++; } else { State.bottomConsec=0; }
-    if(State.noCcConsec>=S.noCcHitsToMute && (State.bottomConsec>=1 || State.noCcConsec>=S.noCcHitsToMute+1)){
-      return {verdict:Verdict.AD_SIGNAL_SCORE,matched:`noCCx${State.noCcConsec}${State.bottomConsec?`+bottomx${State.bottomConsec}`:''}`};
-    }
-    return null;
-  }
-
-  function detectAdSignals(ccText,{captionsExist,captionsBottomed,noCcMs}){
-    const text=(ccText||'').toLowerCase();
-
-    // Instant allow (clear lock + unmute)
-    const allowHit=containsAny(text,ALLOW_PHRASES);
-    if(allowHit) return {verdict:Verdict.PROGRAM_ALLOW,matched:allowHit};
-
-    // Explicit break cues
-    const breakHit=containsAny(text,BREAK_PHRASES);
-    if(breakHit) return {verdict:Verdict.AD_BREAK,matched:breakHit};
-
-    // Hard phrases (includes Medicare/benefits)
-    for(const p of HARD_AD_PHRASES){ if(text.includes(p)) return {verdict:Verdict.AD_HARD,matched:p}; }
-
-    // Brand + context + CTA/OFFER
-    const brandHit=containsAny(text,BRAND_TERMS);
-    if(brandHit){
-      const ctxHit = containsAny(text,AD_CONTEXT) || (URL_RE.test(text)?'url':null) || (PHONE_RE.test(text)?'phone':null);
-      if(ctxHit){
-        const ctaHit = containsAny(text,CTA_TERMS) || containsAny(text,OFFER_TERMS) ||
-                       (DOLLAR_RE.test(text)?'$':null) || (PER_RE.test(text)?'per':null);
-        if(ctaHit) return {verdict:Verdict.AD_BRAND_WITH_CONTEXT,matched:`${brandHit}+${ctxHit}+${ctaHit}`};
-      }
-    }
-
-    // Non-textual (with safety)
-    const nonText = nonTextAdSignal({captionsExist,captionsBottomed,noCcMs});
-    if(nonText) return nonText;
-
-    // Program anchor?
-    if(isProgramAnchor(text)) return {verdict:Verdict.PROGRAM_ANCHOR,matched:null};
-
-    return {verdict:Verdict.PROGRAM,matched:null};
-  }
 
   /* ---------- MUTE/UNMUTE ---------- */
   function setMuted(video,shouldMute,info){
@@ -548,7 +772,8 @@
       `Reason: ${info.reason}\n`+
       (info.match?`Match: "${truncate(info.match, 30)}"\n`:'' )+
       (hudCcSnippet?`CC: "${hudCcSnippet}"`:'' ),
-      info.confidence || State.currentConfidence
+      info.confidence || State.currentConfidence,
+      info.signals
     );
   }
 
@@ -572,78 +797,50 @@
     if(State.rafScheduled) return; State.rafScheduled=true; requestAnimationFrame(()=>{State.rafScheduled=false;tick();});
   }
 
-  function evaluate(video,ccText,captionsExist,captionsBottomed){
-    const t=Date.now();
-    if(captionsExist) State.lastCcSeenMs=t;
+  function evaluate(video, ccText, captionsExist, captionsBottomed) {
+    const t = Date.now();
+    if (captionsExist) State.lastCcSeenMs = t;
+    const noCcMs = t - State.lastCcSeenMs;
 
-    const noCcMs=t-State.lastCcSeenMs;
-    const res=detectAdSignals(ccText,{captionsExist,captionsBottomed,noCcMs});
+    // Pre-compute features for signals
+    const textFeatures = TextAnalyzer.analyze(ccText);
+    const imperativeScore = ccText ? TextAnalyzer.imperativeScore(ccText) : 0;
+    const conversationalScore = ccText ? TextAnalyzer.conversationalScore(ccText) : 0;
 
-    State.currentConfidence = calculateConfidence(res.verdict, res.matched, ccText, {captionsExist,captionsBottomed,noCcMs});
-
-    let shouldMute=false;
-    let reason='PROGRAM_DETECTED';
-    let match=res.matched;
-
-    const manualActive = t < State.manualOverrideUntil;
-    const hardAd = (res.verdict===Verdict.AD_HARD||res.verdict===Verdict.AD_BRAND_WITH_CONTEXT);
-    if(manualActive && !hardAd){
-      setMuted(video,false,{reason:'MANUAL_OVERRIDE_ACTIVE',match,ccSnippet:truncate(ccText),noCcMs,confidence:State.currentConfidence});
-      return;
-    }
-
-    const meetsThreshold = State.currentConfidence >= S.confidenceThreshold;
-
-    if(meetsThreshold && isAdVerdict(res.verdict)){
-      State.adLockUntil=Math.max(State.adLockUntil,t+S.minAdLockMs);
-      State.programVotes=0; State.programQuorumCount=0; State.lastProgramGoodMs=0;
-    }
-
-    const lockActive=t<State.adLockUntil;
-
-    if(res.verdict===Verdict.PROGRAM_ALLOW){
-      State.adLockUntil=0; State.programVotes=S.programVotesNeeded; State.programQuorumCount=S.programQuorumLines;
-      setMuted(video,false,{reason:'PROGRAM_ALLOW_INSTANT',match,ccSnippet:truncate(ccText),noCcMs,confidence:State.currentConfidence});
-      return;
-    }
-
-    const programish = isProgramVerdict(res.verdict);
-    if(programish && captionsExist && !captionsBottomed){
-      State.programVotes=Math.min(S.programVotesNeeded, State.programVotes+1);
-      State.programQuorumCount = Math.min(S.programQuorumLines, State.programQuorumCount + (res.verdict===Verdict.PROGRAM_ANCHOR?2:1));
-      if(State.lastProgramGoodMs===0) State.lastProgramGoodMs=t;
-    } else if(!captionsExist || captionsBottomed || !programish){
-      if(!isProgramVerdict(res.verdict)) State.programQuorumCount=0;
-      if(!captionsExist) State.lastProgramGoodMs=0;
-      State.programVotes = isProgramVerdict(res.verdict)?State.programVotes:0;
-    }
-
-    if(lockActive && meetsThreshold){
-      shouldMute=true; reason='AD_LOCK';
-    }else if(lockActive && !meetsThreshold){
-      shouldMute=(State.lastMuteState===true);
-      reason='AD_LOCK_BELOW_THRESHOLD';
-    }else{
-      if(meetsThreshold && isAdVerdict(res.verdict)){
-        shouldMute=true; reason=res.verdict; State.lastProgramGoodMs=0; State.programQuorumCount=0;
-      }else if(captionsExist && !captionsBottomed){
-        const votesOK = State.programVotes>=S.programVotesNeeded;
-        const quorumOK= State.programQuorumCount>=S.programQuorumLines;
-        const timeOK  = State.lastProgramGoodMs && ((t-State.lastProgramGoodMs)>=S.unmuteDebounceMs);
-        if( (votesOK && quorumOK && timeOK) || res.verdict===Verdict.PROGRAM_ANCHOR){
-          shouldMute=false; reason=(res.verdict===Verdict.PROGRAM_ANCHOR)?'PROGRAM_ANCHOR_OK':'PROGRAM_CONFIRMED';
-        }else{
-          shouldMute=(State.lastMuteState===true);
-          reason = !votesOK ? 'PROGRAM_VOTING' : (!quorumOK ? 'PROGRAM_QUORUM' : 'PROGRAM_DEBOUNCE');
-        }
-      }else{
-        shouldMute=(State.lastMuteState===true)&&(noCcMs<S.muteOnNoCCDelayMs);
-        if(shouldMute)reason='HOLD_PREV_STATE';
+    // Guest intro detection (pre-pass so brandDetected can suppress)
+    let guestIntroDetected = false, guestIntroMatch = null;
+    if (ccText && PhraseIndex.match('brand', ccText)) {
+      const introRe = /(?:joining us|joins us|let's bring in|with us from|our guest from|from)\s+/i;
+      const titleRe = /(?:ceo|cfo|coo|president|chairman|chief|analyst|strategist|manager|economist|director)\b/i;
+      if (introRe.test(ccText) || titleRe.test(ccText)) {
+        guestIntroDetected = true;
+        guestIntroMatch = ccText;
       }
     }
 
-    setMuted(video,shouldMute,{
-      reason,match,ccSnippet:truncate(ccText),noCcMs,confidence:State.currentConfidence
+    const env = { captionsExist, captionsBottomed, noCcMs, textFeatures, imperativeScore, conversationalScore, guestIntroDetected, guestIntroMatch };
+
+    // Collect all signals
+    const signals = SignalCollector.collectAll(ccText || '', env);
+
+    // Calculate confidence
+    const confidence = calculateConfidence(signals);
+    State.currentConfidence = confidence;
+
+    // Decide mute state
+    const decision = decide(confidence, signals);
+
+    // Store last signals for feedback system
+    State.lastSignals = signals;
+
+    // Apply mute
+    setMuted(video, decision.shouldMute, {
+      reason: decision.reason,
+      match: signals.find(s => s.match)?.match || null,
+      ccSnippet: truncate(ccText),
+      noCcMs,
+      confidence,
+      signals,
     });
   }
 
@@ -707,25 +904,32 @@
   function attachCcObserver(){
     const {captionWindow}=detectNodes(); if(!captionWindow)return;
     if(!NS.ccObserver) NS.ccObserver=new MutationObserver(()=>scheduleImmediateCheck()); else {try{NS.ccObserver.disconnect();}catch{}}
-    try{ NS.ccObserver.observe(captionWindow,{subtree:true,childList:true,characterData:true}); log('CC observer attached.'); }catch{}
+    try{
+      NS.ccObserver.observe(captionWindow,{subtree:true,childList:true,characterData:true});
+      log('CC observer attached.');
+      if(NS.ccAttachTimer){clearInterval(NS.ccAttachTimer);NS.ccAttachTimer=null;}
+    }catch{}
   }
   if(NS.ccAttachTimer)clearInterval(NS.ccAttachTimer);
   NS.ccAttachTimer=setInterval(attachCcObserver,1000);
 
-  function attachRouteObserver(){
-    if(NS.routeObserver){try{NS.routeObserver.disconnect();}catch{}}
-    NS.routeObserver=new MutationObserver(()=>{
-      if(NS._lastUrl!==location.href){
-        NS._lastUrl=location.href; log('Route change →',NS._lastUrl);
-        State.reset(true);
-        if(NS.hudTimer){clearTimeout(NS.hudTimer);NS.hudTimer=null;}
-        if(NS.hudAnimTimer){clearTimeout(NS.hudAnimTimer);NS.hudAnimTimer=null;}
-        startLoop();
-      }
-    });
-    NS.routeObserver.observe(document,{subtree:true,childList:true});
+  function watchRouteChanges() {
+    function onRouteChange() {
+      if (NS._lastUrl === location.href) return;
+      NS._lastUrl = location.href;
+      log('Route change →', NS._lastUrl);
+      State.reset(true);
+      if (NS.hudTimer) { clearTimeout(NS.hudTimer); NS.hudTimer = null; }
+      if (NS.hudAnimTimer) { clearTimeout(NS.hudAnimTimer); NS.hudAnimTimer = null; }
+      startLoop();
+    }
+    const origPush = history.pushState;
+    history.pushState = function() { origPush.apply(this, arguments); onRouteChange(); };
+    const origReplace = history.replaceState;
+    history.replaceState = function() { origReplace.apply(this, arguments); onRouteChange(); };
+    window.addEventListener('popstate', onRouteChange);
   }
-  attachRouteObserver();
+  watchRouteChanges();
 
   /* ---------- BOTTOM-LEFT CONTROL BUTTONS ---------- */
   function ensureControlButtons(){
@@ -1049,14 +1253,7 @@
       S.allowPhrases=panel.querySelector('#allowPhrases').value.split('\n').map(s=>s.trim()).filter(Boolean);
       S.breakPhrases=panel.querySelector('#breakPhrases').value.split('\n').map(s=>s.trim()).filter(Boolean);
 
-      HARD_AD_PHRASES=toLines(S.hardPhrases);
-      BRAND_TERMS=toLines(S.brandTerms);
-      AD_CONTEXT=toLines(S.adContext);
-      CTA_TERMS=Array.isArray(S.ctaTerms)?S.ctaTerms.map(s=>s.toLowerCase()):toLines(S.ctaTerms?.join?.('\n')||'');
-      OFFER_TERMS=Array.isArray(S.offerTerms)?S.offerTerms.map(s=>s.toLowerCase()):toLines(S.offerTerms?.join?.('\n')||'');
-      ALLOW_PHRASES=toLines(Array.isArray(S.allowPhrases)?S.allowPhrases.join('\n'):S.allowPhrases);
-      BREAK_PHRASES=toLines(Array.isArray(S.breakPhrases)?S.breakPhrases.join('\n'):S.breakPhrases);
-
+      PhraseIndex.rebuild(S);
       saveSettings(S); applySettings(true); alert('Settings saved and applied.');
     };
     return panel;
@@ -1075,5 +1272,5 @@
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
-  log('Booted v3.5.0',{hardCount:HARD_AD_PHRASES.length,brandCount:BRAND_TERMS.length,ctxCount:AD_CONTEXT.length,allowCount:ALLOW_PHRASES.length,breakCount:BREAK_PHRASES.length,llmReview:S.llmReviewEnabled,freqWords:S.showFrequentWords,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,confidenceThreshold:S.confidenceThreshold,hudSlider:S.showHudSlider});
+  log('Booted v4.0.0',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
