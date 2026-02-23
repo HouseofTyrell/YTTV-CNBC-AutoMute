@@ -86,7 +86,7 @@
     // Confidence Meter
     showConfidenceMeter:true,
     confidenceMeterStyle:'bar',  // 'bar', 'numeric', 'both'
-    confidenceThreshold:65,      // Mute when confidence >= this value (0-100)
+    confidenceThreshold:72,      // Mute when confidence >= this value (0-100)
     showHudSlider:true,          // Show threshold slider on HUD (can disable to reduce HUD size)
 
     // Timing / CC loss
@@ -95,7 +95,7 @@
     unmuteDebounceMs:350,    // reduced from 500 for faster unmute
 
     // Ad lock
-    minAdLockMs:75000,       // 75s covers typical CNBC ad breaks
+    minAdLockMs:45000,       // 45s covers typical CNBC ad breaks
 
     // Program gating
     programVotesNeeded:2,
@@ -126,7 +126,7 @@
 
       // finance/offer
       "terms apply","limited time offer","0% apr","zero percent apr","get started today","apply today",
-      "see store for details","not available in all states","learn more at","learn more on","visit",
+      "see store for details","not available in all states",
       "get your money right","policy for only","guaranteed buyback option","own your place in the future",
 
       // MEDICARE/BENEFITS — strong ad signals kept here
@@ -148,12 +148,10 @@
       "humana","unitedhealthcare","anthem","aetna","cigna","centene","molina",
       "over-the-counter","otc","benefits card","allowance","prepaid card","supplemental benefits",
       "in-network","out-of-network","formulary","prescription drug coverage",
-      // Financial
-      "fidelity","schwab","charles schwab","ameritrade","td ameritrade","e-trade","etrade","robinhood",
-      "vanguard","blackrock","jp morgan","jpmorgan","goldman sachs","morgan stanley",
-      "merrill lynch","wells fargo","citibank","citi","bank of america","sofi","ally bank","chime",
-      // Tech
-      "iphone","samsung","google pixel","microsoft","salesforce","oracle","ibm","dell","cisco",
+      // Financial (only brands that are primarily advertisers, not editorial subjects)
+      "sofi","ally bank","chime",
+      // Tech (only consumer product brands, not CNBC editorial staples)
+      "iphone","samsung","google pixel",
       // Gold / precious metals
       "rosland capital","goldco","augusta precious metals","birch gold","noble gold",
       // Auto
@@ -166,7 +164,7 @@
 
     adContext: [
       "sponsored by","brought to you by","presented by","paid for by","underwritten by",
-      "offer ends","apply now","apply today","learn more","visit","sign up","join now",
+      "offer ends","apply now","apply today","sign up","join now",
       "get started","start today","enroll","enrollment","speak to an agent","licensed agent",
       ".com","dot com","call now","call today","call the number","free shipping","save today",
       "see details","member fdic","not fdic insured","policy","quote",
@@ -266,7 +264,7 @@
     BASE: 50,
     HARD_PHRASE: 40,
     BREAK_CUE: 38,
-    BRAND_DETECTED: 15,
+    BRAND_DETECTED: 12,
     AD_CONTEXT: 10,
     CTA_DETECTED: 8,
     OFFER_DETECTED: 8,
@@ -477,7 +475,7 @@
     const match = PhraseIndex.match('brand', text);
     if (!match) return null;
     if (env.guestIntroDetected) return null;
-    const w = (State.adLockUntil > Date.now()) ? WEIGHT.BRAND_DETECTED : Math.round(WEIGHT.BRAND_DETECTED * 0.5);
+    const w = (State.adLockUntil > Date.now()) ? WEIGHT.BRAND_DETECTED : Math.round(WEIGHT.BRAND_DETECTED * 0.3);
     return { weight: w, label: 'Brand detected', match };
   });
 
@@ -616,7 +614,7 @@
       return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
     }
 
-    if (meetsThreshold && confidence >= 75) {
+    if (meetsThreshold && confidence >= 82) {
       State.adLockUntil = Math.max(State.adLockUntil, t + S.minAdLockMs);
       State.programVotes = 0;
       State.programQuorumCount = 0;
@@ -669,29 +667,41 @@
   const _hudRefs = {};
   function _buildHUDInner() {
     if (_hudBuilt || !NS.hudEl) return;
-    NS.hudEl.innerHTML = `<span id="yttp-hud-status" style="font-weight:600"></span>` +
-      `<span style="color:#aaa;margin:0 4px;">·</span><span id="yttp-hud-reason"></span>` +
-      `<span style="color:#aaa;margin:0 4px;">·</span><span id="yttp-hud-meter"></span>` +
-      `<span id="yttp-hud-slider-wrap" style="margin-left:8px;pointer-events:auto;display:inline-flex;align-items:center;gap:4px;">` +
+    NS.hudEl.style.whiteSpace = 'normal';
+    NS.hudEl.style.maxWidth = '420px';
+    const thr = parseInt(S.confidenceThreshold, 10) || 65;
+    NS.hudEl.innerHTML =
+      `<div style="display:flex;align-items:center;gap:4px;white-space:nowrap;">` +
+        `<span id="yttp-hud-status" style="font-weight:600"></span>` +
+        `<span style="color:#aaa;">·</span><span id="yttp-hud-reason"></span>` +
+        `<span style="color:#aaa;">·</span><span id="yttp-hud-meter"></span>` +
+      `</div>` +
+      `<div id="yttp-hud-slider-wrap" style="display:flex;align-items:center;gap:4px;margin-top:3px;pointer-events:auto;">` +
         `<span style="color:#888;font-size:10px;">Thr:</span>` +
-        `<input type="range" id="yttp-threshold-slider" min="0" max="100" value="${S.confidenceThreshold}" style="width:60px;height:12px;cursor:pointer;accent-color:#1f6feb;vertical-align:middle;">` +
-        `<span id="yttp-threshold-value" style="color:#fff;font-size:10px;">${S.confidenceThreshold}%</span>` +
-      `</span>` +
-      `<span id="yttp-hud-signals" style="color:#888;margin-left:6px;font-size:10px;"></span>`;
+        `<input type="range" id="yttp-threshold-slider" min="0" max="100" value="${thr}" style="width:80px;height:12px;cursor:pointer;accent-color:#1f6feb;">` +
+        `<input type="number" id="yttp-threshold-number" min="0" max="100" value="${thr}" style="width:42px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;padding:1px 3px;font-size:10px;text-align:center;pointer-events:auto;">` +
+        `<span style="color:#888;font-size:10px;">%</span>` +
+      `</div>` +
+      `<div id="yttp-hud-signals" style="color:#888;font-size:10px;margin-top:2px;white-space:nowrap;"></div>`;
     _hudRefs.status = NS.hudEl.querySelector('#yttp-hud-status');
     _hudRefs.reason = NS.hudEl.querySelector('#yttp-hud-reason');
     _hudRefs.meter = NS.hudEl.querySelector('#yttp-hud-meter');
     _hudRefs.sliderWrap = NS.hudEl.querySelector('#yttp-hud-slider-wrap');
     _hudRefs.slider = NS.hudEl.querySelector('#yttp-threshold-slider');
-    _hudRefs.sliderVal = NS.hudEl.querySelector('#yttp-threshold-value');
+    _hudRefs.numberInput = NS.hudEl.querySelector('#yttp-threshold-number');
     _hudRefs.signals = NS.hudEl.querySelector('#yttp-hud-signals');
+    function syncThreshold(val) {
+      val = Math.max(0, Math.min(100, parseInt(val, 10) || 65));
+      S.confidenceThreshold = val;
+      if (_hudRefs.slider) _hudRefs.slider.value = val;
+      if (_hudRefs.numberInput) _hudRefs.numberInput.value = val;
+      saveSettings(S);
+    }
     if (_hudRefs.slider) {
-      _hudRefs.slider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        S.confidenceThreshold = val;
-        if (_hudRefs.sliderVal) _hudRefs.sliderVal.textContent = val + '%';
-        saveSettings(S);
-      });
+      _hudRefs.slider.addEventListener('input', (e) => syncThreshold(e.target.value));
+    }
+    if (_hudRefs.numberInput) {
+      _hudRefs.numberInput.addEventListener('change', (e) => syncThreshold(e.target.value));
     }
     _hudBuilt = true;
   }
@@ -1238,10 +1248,12 @@
     // Build tab content from SETTING_FIELDS
     const tabContent = {};
     for (const tn of tabNames) tabContent[tn] = '';
-    let lastSection = {};
+    const openSection = {};  // track which tabs have an open section div
     for (const f of SETTING_FIELDS) {
-      if (f.section && f.section !== lastSection[f.tab]) {
-        lastSection[f.tab] = f.section;
+      if (f.section) {
+        // Close previous section if one is open for this tab
+        if (openSection[f.tab]) tabContent[f.tab] += `</div>`;
+        openSection[f.tab] = true;
         tabContent[f.tab] += `<div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;"><div style="font-weight:600;font-size:13px;">${f.section}</div>`;
       }
       if (f.type === 'checkbox') {
@@ -1257,6 +1269,8 @@
         tabContent[f.tab] += `<div><div style="margin:6px 0 4px;font-weight:600;">${f.label} (one per line)</div><textarea id="${f.id}" rows="${f.rows}" style="${inputS};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea></div>`;
       }
     }
+    // Close any remaining open section divs
+    for (const tn of tabNames) { if (openSection[tn]) tabContent[tn] += `</div>`; }
 
     // Actions tab (static)
     tabContent.actions = `
