@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.0.0: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.0.1: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.0.0
+// @version      4.0.1
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -631,17 +631,17 @@
     if(NS.hudEl)return;
     const el=document.createElement('div');
     el.style.cssText=[
-      'position:fixed','left:50%','bottom:80px','z-index:2147483647',
+      'position:fixed','left:50%','top:12px','z-index:2147483647',
       'font:11px/1.2 system-ui,sans-serif','background:rgba(0,0,0,.8)','color:#fff',
       'padding:6px 10px','border-radius:6px','pointer-events:none','white-space:nowrap',
       'overflow:hidden',
-      `opacity:0`,`transform:translateX(-50%) translateY(${S.hudSlidePx|0}px)`,
+      `opacity:0`,`transform:translateX(-50%) translateY(-${S.hudSlidePx|0}px)`,
       `transition:opacity ${S.hudFadeMs|0}ms ease,transform ${S.hudFadeMs|0}ms ease`
     ].join(';');
     el.textContent=NS.hudText||'';document.documentElement.appendChild(el);NS.hudEl=el;
   }
   function hudFadeTo(v){ensureHUD();if(!NS.hudEl)return; if(NS.hudAnimTimer){clearTimeout(NS.hudAnimTimer);NS.hudAnimTimer=null;}
-    NS.hudEl.style.opacity=v?'1':'0';NS.hudEl.style.transform=v?`translateX(-50%) translateY(0px)`:`translateX(-50%) translateY(${S.hudSlidePx|0}px)`;}
+    NS.hudEl.style.opacity=v?'1':'0';NS.hudEl.style.transform=v?`translateX(-50%) translateY(0px)`:`translateX(-50%) translateY(-${S.hudSlidePx|0}px)`;}
   let _hudBuilt = false;
   const _hudRefs = {};
   function _buildHUDInner() {
@@ -733,7 +733,7 @@
     btn.textContent='⚙️';
     btn.title='Settings (Ctrl+Shift+S)';
     btn.style.cssText=[
-      'position:fixed','right:12px','bottom:12px','z-index:2147483647',
+      'position:fixed','right:12px','top:12px','z-index:2147483647',
       'background:#1f6feb','color:#fff','border:none','border-radius:8px',
       'padding:8px 12px','font:16px/1 system-ui,sans-serif',
       'box-shadow:0 6px 18px rgba(0,0,0,.3)','cursor:pointer','pointer-events:auto'
@@ -750,7 +750,7 @@
     btn.textContent='🔇';
     btn.title='Manual Mute Toggle';
     btn.style.cssText=[
-      'position:fixed','right:68px','bottom:12px','z-index:2147483647',
+      'position:fixed','right:68px','top:12px','z-index:2147483647',
       'background:#444','color:#fff','border:none','border-radius:8px',
       'padding:8px 12px','font:16px/1 system-ui,sans-serif',
       'box-shadow:0 6px 18px rgba(0,0,0,.3)','cursor:pointer','pointer-events:auto'
@@ -1086,7 +1086,7 @@
     // Create container for all buttons
     const container=document.createElement('div');
     container.style.cssText=[
-      'position:fixed','left:12px','bottom:12px','z-index:2147483647',
+      'position:fixed','left:12px','top:12px','z-index:2147483647',
       'display:flex','flex-direction:column','gap:8px','pointer-events:none'
     ].join(';');
     NS.btnContainer=container;
@@ -1254,7 +1254,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.0.0',
+      version: '4.0.1',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1440,7 +1440,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.0 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.0.1 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1527,5 +1527,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.0.0',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.0.1',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
