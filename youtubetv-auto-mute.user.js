@@ -295,6 +295,10 @@
   const _loadedLog = kvGet(CAPLOG_KEY, []);
   window._captions_log = Array.isArray(_loadedLog) ? _loadedLog : [];
 
+  const FEEDBACK_KEY = 'yttp_feedback_log';
+  let _feedbackLog = kvGet(FEEDBACK_KEY, []);
+  if (!Array.isArray(_feedbackLog)) _feedbackLog = [];
+
   const State = {
     enabled: true,
     videoRef: null,
@@ -1033,12 +1037,30 @@
   function flagIncorrectState(){
     const {captionWindow,video}=detectNodes();
     const cc=(captionWindow?.textContent||'').trim();
-    const currentMuted=State.lastMuteState===true;
+    const wasMuted=State.lastMuteState===true;
+
+    const entry = {
+      timestamp: new Date().toISOString(),
+      action: wasMuted ? 'FALSE_POSITIVE' : 'FALSE_NEGATIVE',
+      wasMuted,
+      captionText: truncate(cc, 200),
+      lastNLines: [...State.captionWindow],
+      confidence: State.currentConfidence,
+      signals: (State.lastSignals || []).map(s => ({
+        source: s.source, weight: s.weight, match: s.match
+      })),
+      adLockActive: Date.now() < State.adLockUntil,
+      url: location.href,
+      programQuorum: State.programQuorumCount,
+    };
+
+    _feedbackLog.push(entry);
+    kvSet(FEEDBACK_KEY, _feedbackLog);
 
     pushEventLog('FLAG_INCORRECT_STATE',{
-      reason:currentMuted?'was_muted_toggling_unmute':'was_unmuted_toggling_mute',
-      ccSnippet:truncate(cc, 200),
-      url:location.href,
+      reason:entry.action,
+      ccSnippet:entry.captionText,
+      url:entry.url,
       noCcMs:Date.now()-State.lastCcSeenMs,
       lock:Math.max(0,State.adLockUntil-Date.now()),
       pv:State.programVotes,
@@ -1046,15 +1068,17 @@
     });
 
     if(video){
-      if(currentMuted){
+      if(wasMuted){
         State.adLockUntil=0;
         State.programQuorumCount=S.programQuorumLines;
         State.manualOverrideUntil=Date.now()+S.manualOverrideMs;
-        setMuted(video,false,{reason:'FLAG_INCORRECT_STATE_UNMUTE',match:null,ccSnippet:truncate(cc),noCcMs:Date.now()-State.lastCcSeenMs});
+        setMuted(video,false,{reason:'FLAG_UNMUTE',match:null,ccSnippet:truncate(cc),noCcMs:Date.now()-State.lastCcSeenMs,confidence:State.currentConfidence,signals:[]});
       }else{
-        setMuted(video,true,{reason:'FLAG_INCORRECT_STATE_MUTE',match:null,ccSnippet:truncate(cc),noCcMs:Date.now()-State.lastCcSeenMs});
+        setMuted(video,true,{reason:'FLAG_MUTE',match:null,ccSnippet:truncate(cc),noCcMs:Date.now()-State.lastCcSeenMs,confidence:State.currentConfidence,signals:[]});
       }
     }
+
+    log('Feedback logged:', entry.action, 'confidence:', entry.confidence, 'signals:', entry.signals.length);
   }
 
   /* ---------- SETTINGS PANEL ---------- */
@@ -1175,6 +1199,11 @@
         <button id="clearlog" style="${btnS};background:#8b0000">Clear Caption Log</button>
       </div>
       <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+        <div style="font-weight:600;font-size:13px;">Feedback Log</div>
+        <button id="dlFeedback" style="${btnS}">Download Feedback Log (JSON)</button>
+        <button id="clearFeedback" style="${btnS};background:#8b0000">Clear Feedback Log</button>
+      </div>
+      <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
         <div style="font-weight:600;font-size:13px;">Settings Management</div>
         <button id="export" style="${btnS}">Export Settings to File</button>
         <label style="${btnS};display:inline-block;position:relative;overflow:hidden;">Import Settings<input id="import" type="file" accept="application/json" style="opacity:0;position:absolute;left:0;top:0;width:100%;height:100%;cursor:pointer;"></label>
@@ -1234,6 +1263,8 @@
     panel.querySelector('#yttp-close').onclick = () => togglePanel();
     panel.querySelector('#dl').onclick = downloadCaptionsNow;
     panel.querySelector('#clearlog').onclick = () => { window._captions_log = []; kvSet(CAPLOG_KEY, window._captions_log); alert('Caption log cleared.'); };
+    panel.querySelector('#dlFeedback').onclick = () => downloadText('yttp_feedback.json', JSON.stringify(_feedbackLog, null, 2));
+    panel.querySelector('#clearFeedback').onclick = () => { _feedbackLog = []; kvSet(FEEDBACK_KEY, _feedbackLog); alert('Feedback log cleared.'); };
     panel.querySelector('#export').onclick = () => {
       const url = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(S, null, 2));
       const a = document.createElement('a'); a.href = url; a.download = 'yttp_settings.json'; a.click();
