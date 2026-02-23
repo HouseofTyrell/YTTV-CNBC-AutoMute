@@ -1,22 +1,25 @@
 # YTTV Auto-Mute
 
-A Tampermonkey/Greasemonkey userscript that automatically mutes advertisements on YouTube TV by analyzing closed captions and video behavior patterns.
+A Tampermonkey/Greasemonkey userscript that automatically mutes advertisements on YouTube TV using signal-aggregation confidence scoring.
 
 ## Overview
 
-This userscript intelligently detects when ads are playing on YouTube TV (primarily targeting CNBC and financial news channels) and automatically mutes them. It uses a sophisticated detection system based on closed caption analysis, program/ad phrase matching, and visual cues to determine when to mute and unmute content.
+This userscript intelligently detects when ads are playing on YouTube TV (primarily targeting CNBC and financial news channels) and automatically mutes them. It uses a **signal-aggregation confidence system** where 18 weighted signals (ad-leaning and program-leaning) feed a 0-100 confidence meter — no single signal can trigger a mute on its own.
 
 ## Features
 
-- **Smart Caption Analysis**: Detects ads by analyzing closed caption text for common advertising phrases, Medicare/benefits terminology, brand mentions, and call-to-action language
-- **Program Detection**: Recognizes when actual programming resumes using anchor phrases like "joining me now", "back to you", earnings discussions, and breaking news cues
-- **Ad Lock Mechanism**: Maintains mute during commercial breaks to prevent rapid toggling
-- **Program Quorum System**: Requires consecutive program-leaning captions before unmuting to avoid false positives
-- **Manual Override**: Flag false positives with Ctrl+F to teach the script when it makes mistakes
-- **Visual HUD**: Optional on-screen display showing mute status, reason, and caption snippets
-- **Caption Logging**: Records all captions with timestamps for debugging and analysis
-- **Customizable Detection**: Fully configurable phrase lists, timing parameters, and detection thresholds
-- **Hotkey Support**: Quick keyboard shortcuts for common actions
+- **Signal-Aggregation Confidence Scoring**: 18 independent signals contribute weighted scores to a 0-100 confidence meter. Muting only occurs when the aggregate confidence exceeds a configurable threshold (default: 65).
+- **Smart Caption Analysis**: Detects ads by analyzing closed caption text for pharma disclaimers, brand mentions, CTAs, offer language, and imperative voice patterns.
+- **Guest Intro Detection**: Suppresses brand-name signals when editorial discussion context is detected (e.g., "joining us from Fidelity" won't trigger a mute).
+- **Sliding Caption Window**: Analyzes both the latest caption line and a sliding window of recent lines for broader context.
+- **Program Detection**: 33 CNBC anchor names, 14 named segments, 11 return-from-break phrases, and ~50 allow phrases for strong program identification.
+- **Ad Lock Mechanism**: Maintains mute for 75 seconds (configurable) during commercial breaks to prevent rapid toggling.
+- **Program Quorum System**: Requires consecutive program-leaning captions before unmuting to avoid false positives.
+- **Structured Feedback System**: Flag false positives/negatives with full signal breakdown capture for analysis and weight tuning.
+- **Volume Ramping**: Smooth ease-in volume ramp on unmute (1.5s default, configurable) instead of jarring instant unmute.
+- **Visual HUD**: On-screen display with confidence meter, threshold slider, signal breakdown, and mute status.
+- **Data-Driven Settings Panel**: Tabbed settings panel with all detection parameters, phrase lists, and timing controls.
+- **Hotkey Support**: Quick keyboard shortcuts for common actions.
 
 ## Installation
 
@@ -40,26 +43,46 @@ Alternatively, you can copy the entire script content and create a new userscrip
 
 ## How It Works
 
-The script uses multiple detection strategies:
+### Signal-Aggregation Pipeline
 
-### 1. Caption-Based Detection
+```
+Caption Text → SignalCollector (18 signals) → ConfidenceScorer (0-100) → DecisionEngine → Mute/Unmute
+```
 
-- **Hard Ad Phrases**: Medical disclaimers ("ask your doctor", "side effects include"), Medicare/benefits terms, financial offers
-- **Brand + Context Detection**: Recognizes brand names combined with advertising context (URLs, phone numbers, CTAs)
-- **Break Cues**: Detects explicit commercial break announcements ("back after this", "we'll be right back")
-- **Program Anchors**: Identifies strong program signals ("joining me now", "breaking news", earnings discussions)
+Each signal contributes a positive (ad-leaning) or negative (program-leaning) weight to a base score of 50. The final confidence score determines whether to mute.
 
-### 2. Visual Cues
+### Ad-Leaning Signals (positive weight)
 
-- **Caption Loss**: Rapid muting when captions disappear (common during ads)
-- **Bottom-Positioned Captions**: Detects when captions are bottom-aligned (typical ad behavior)
+| Signal | Weight | Description |
+|--------|--------|-------------|
+| Hard Phrase | +40 | Pharma disclaimers, paid programming, strong ad markers |
+| Break Cue | +38 | "we'll be right back", "stay with us" |
+| Brand Detected | +15 | Known advertiser brands (suppressed during guest intros) |
+| Ad Context | +10 | "sponsored by", ".com", "call now" |
+| URL/Phone | +10 | URLs or phone numbers in caption text |
+| CTA Detected | +8 | "apply now", "enroll", "sign up" |
+| Offer Detected | +8 | "$0 premium", "limited time", pricing language |
+| Imperative Voice | +8 | High ratio of "you/your" + command verbs |
+| Caption Loss | +18 max | Captions disappear (common during ads) |
+| Text Features | varies | ALL CAPS, excessive punctuation, price mentions |
 
-### 3. Intelligent State Management
+### Program-Leaning Signals (negative weight)
 
-- **Ad Lock**: Once an ad is detected, maintains mute for a minimum duration to cover full commercial breaks
-- **Program Quorum**: Requires multiple consecutive program-leaning caption lines before unmuting
-- **Voting System**: Accumulates evidence before changing mute state
-- **Manual Override Window**: After flagging a false positive, prevents re-muting for several seconds unless strong ad signals detected
+| Signal | Weight | Description |
+|--------|--------|-------------|
+| Program Allow | -45 | "earnings", "breaking news", show names |
+| Return from Break | -42 | "welcome back to squawk", "we are back" |
+| Anchor Name | -28 | 33 CNBC anchors (Sara Eisen, Jim Cramer, etc.) |
+| Program Anchor | -25 | Regex-based: "joins us now", "conference call", etc. |
+| Guest Intro | -22 | Editorial brand discussion context |
+| Segment Name | -18 | "lightning round", "final trades", etc. |
+| Conversational | -12 | Third-person analytical language patterns |
+
+### State Management
+
+- **Ad Lock**: When confidence exceeds 75, locks mute for 75s (configurable) with a floor of 65
+- **Program Quorum**: Requires multiple consecutive program signals before unmuting
+- **Manual Override**: After flagging a false positive, prevents re-muting for 8s
 
 ## Usage
 
@@ -68,40 +91,37 @@ The script uses multiple detection strategies:
 - **Ctrl+M**: Toggle script on/off
 - **Ctrl+D**: Download caption log
 - **Ctrl+Shift+S**: Open settings panel
-- **Ctrl+F**: Flag false positive (logs current state and toggles mute)
+- **Ctrl+Shift+F**: Flag incorrect state (captures full signal breakdown)
 
 ### Settings Panel
 
-Press **Ctrl+Shift+S** to open the comprehensive settings panel where you can:
+Press **Ctrl+Shift+S** to open the tabbed settings panel:
 
-- Toggle true mute vs. volume reduction
-- Adjust timing parameters (poll interval, debounce delays, ad lock duration)
-- Configure HUD display options
-- Edit detection phrase lists
-- Import/export settings
-- Clear caption logs
-- Reset to defaults
+- **General**: True mute toggle, debug logging, caption visibility
+- **HUD**: Confidence meter style, threshold slider, animation settings
+- **Timing**: Poll interval, CC loss delay, ad lock duration, quorum settings, caption window size, volume ramp
+- **Phrases**: All phrase lists (one per line, editable)
+- **Actions**: Download/clear logs, export/import settings, download feedback log
 
 ### HUD (Heads-Up Display)
 
-The optional HUD shows:
+The HUD shows:
 - Current mute state (MUTED/UNMUTED)
 - Reason for the current state
-- Matched phrase (if applicable)
-- Caption snippet
+- Confidence meter (bar, numeric, or both)
+- Adjustable threshold slider
+- Top 3 contributing signals with weights
 
-Configure HUD behavior in settings:
-- Always visible
-- Auto-show only when muted
-- Customizable fade animations and positioning
+### Feedback System
 
-### Flag False Positive Button
+Click the red "Flag Incorrect State" button (or press Ctrl+Shift+F) when the script makes a mistake. Each feedback entry captures:
+- Whether it was a false positive or false negative
+- Full signal array with weights and matches
+- Last 5 caption lines for context
+- Confidence score and ad lock state
+- URL and timestamp
 
-A red "Flag False Positive" button appears in the bottom-left corner. Click it (or press Ctrl+F) when the script:
-- Mutes during actual programming
-- Fails to mute during ads
-
-This logs the event and temporarily overrides the current state, helping you identify patterns to adjust settings.
+Download feedback as JSON from the settings panel for analysis and weight tuning.
 
 ## Configuration
 
@@ -109,28 +129,34 @@ This logs the event and temporarily overrides the current state, helping you ide
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `intervalMs` | 150 | How often to check captions (milliseconds) |
-| `muteOnNoCCDelayMs` | 180 | How quickly to mute when captions disappear |
+| `intervalMs` | 150 | How often to check captions (ms) |
+| `confidenceThreshold` | 65 | Mute when confidence >= this (0-100) |
+| `muteOnNoCCDelayMs` | 2500 | How quickly to mute when captions disappear (ms) |
 | `noCcHitsToMute` | 2 | Consecutive no-caption checks before muting |
-| `minAdLockMs` | 20000 | Minimum ad lock duration (20 seconds) |
+| `minAdLockMs` | 75000 | Minimum ad lock duration (75 seconds) |
 | `programVotesNeeded` | 2 | Program signals needed before unmute consideration |
-| `programQuorumLines` | 4 | Consecutive program captions needed to unmute |
-| `unmuteDebounceMs` | 500 | Delay before unmuting after program detected |
-| `manualOverrideMs` | 8000 | Override duration after flagging false positive |
+| `programQuorumLines` | 3 | Consecutive program captions needed to unmute |
+| `unmuteDebounceMs` | 350 | Delay before unmuting after program detected (ms) |
+| `manualOverrideMs` | 8000 | Override duration after flagging false positive (ms) |
+| `captionWindowSize` | 5 | Number of recent caption lines for window analysis |
+| `volumeRampMs` | 1500 | Volume ramp duration on unmute (0 = instant) |
 
 ### Phrase Lists
 
 The script includes extensive customizable phrase lists:
 
-- **Hard Phrases**: Rx disclaimers, Medicare terms, financial offers
-- **Brand Terms**: Major advertisers (financial, telecom, pharma, etc.)
-- **Ad Context**: Sponsorship, CTAs, offers
+- **Hard Phrases**: Rx disclaimers, pharma safety info, paid programming, strong ad markers
+- **Brand Terms**: ~100 advertisers across financial, telecom, pharma, insurance, auto, tech, gold, and legal categories
+- **Ad Context**: Sponsorship language, promo codes, guarantees, order/shop CTAs
 - **CTA Terms**: "apply now", "call today", "learn more"
 - **Offer Terms**: Pricing, guarantees, benefits
-- **Allow Phrases**: Strong program indicators (analyst names, market terminology)
-- **Break Phrases**: Explicit commercial break announcements
+- **Allow Phrases**: ~50 CNBC show names, welcome variants, market terms, conversational anchors
+- **Break Phrases**: Commercial break announcements
+- **Anchor Names**: 33 CNBC on-air personalities
+- **Segment Names**: 14 named CNBC segments
+- **Return-from-Break**: 11 phrases indicating program resumption
 
-All lists are editable in the settings panel.
+All lists are editable in the settings panel (Phrases tab).
 
 ## Logging and Debugging
 
@@ -138,22 +164,16 @@ All lists are editable in the settings panel.
 
 All captions are logged with timestamps. Access them via:
 - **Ctrl+D**: Download current log as text file
-- Settings panel: View, clear, or configure auto-download intervals
+- Settings panel: Configure auto-download intervals, clear logs
 
-### Event Logs
+### Feedback Logs
 
-The script logs all mute/unmute events with:
-- Timestamp
-- Action (MUTED/UNMUTED/FLAG_FALSE_POSITIVE)
-- Reason/verdict
-- Matched phrase
-- Caption snippet
-- State variables (ad lock, program votes, quorum count)
+Structured JSON logs of every false positive/negative flag. Download from Settings > Actions.
 
 ### Console Debugging
 
 Enable in settings:
-- `debug`: General logging
+- `debug`: General logging (mute/unmute events, route changes, boot info)
 - `debugVerboseCC`: Log every caption change in real-time
 
 ## Troubleshooting
@@ -167,14 +187,14 @@ Enable in settings:
 
 ### Too Many False Positives (Muting During Shows)
 
-1. Reduce `programQuorumLines` (requires fewer program captions to unmute)
-2. Reduce `programVotesNeeded`
-3. Add common show phrases to "Allow Phrases" list
-4. Decrease `minAdLockMs` (shorter ad lock duration)
+1. Lower `confidenceThreshold` (default 65, try 70-75)
+2. Add common show phrases to "Allow Phrases" list
+3. Decrease `minAdLockMs` (shorter ad lock duration)
+4. Check feedback log to see which signals are triggering
 
 ### Not Muting Ads
 
-1. Increase `programQuorumLines` (requires more evidence before unmuting)
+1. Raise `confidenceThreshold` (try 55-60)
 2. Add common ad phrases to "Hard Phrases" or "Brand Terms"
 3. Decrease `muteOnNoCCDelayMs` (faster mute on caption loss)
 4. Check caption logs to see what text appears during ads
@@ -182,15 +202,19 @@ Enable in settings:
 ### HUD Issues
 
 - Not visible: Enable "Show HUD always" in settings
-- Wrong position: HUD is fixed to bottom-right; check for page zoom issues
+- Wrong position: HUD is fixed to bottom-center; check for page zoom issues
 - Not updating: Verify script is enabled (Ctrl+M to toggle)
 
 ## Technical Details
 
+- **Architecture**: SignalCollector → ConfidenceScorer → DecisionEngine pipeline
 - **Namespace**: Uses `window.__yttpMute__` to prevent conflicts
-- **Storage**: Settings and logs persist via GM_getValue/localStorage
-- **Observers**: MutationObserver watches captions and route changes
-- **Performance**: Configurable polling with RAF-based fast recheck option
+- **Storage**: Settings and logs persist via GM_getValue/localStorage with debounced writes
+- **PhraseIndex**: Compiled regex from phrase lists (3-10x faster than array iteration)
+- **TextAnalyzer**: CharCode-based text analysis (no regex array allocations)
+- **Route Detection**: History API interception (pushState/replaceState + popstate)
+- **HUD**: Build DOM once, update only textContent on subsequent calls
+- **DOM Caching**: Video and caption window queries cached with 2s TTL
 
 ## License
 
@@ -201,13 +225,14 @@ MIT License - See script header for details
 Found an issue or want to improve detection? This is an open userscript - feel free to:
 - Fork and modify
 - Share improved phrase lists
+- Submit feedback logs to help tune signal weights
 - Report detection patterns that need adjustment
 
 ## Credits
 
-Developed for CNBC and financial news viewers on YouTube TV. Heavily weighted detection for Medicare/benefits advertisements which are common during financial news programming.
+Developed for CNBC and financial news viewers on YouTube TV. Optimized for financial news ad patterns including Medicare/benefits, pharma, and financial services advertisements.
 
 ---
 
-**Version**: 3.0
-**Last Updated**: 2024
+**Version**: 4.0.0
+**Last Updated**: 2026
