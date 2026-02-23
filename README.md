@@ -13,7 +13,8 @@ This userscript intelligently detects when ads are playing on YouTube TV (primar
 - **Guest Intro Detection**: Suppresses brand-name signals when editorial discussion context is detected (e.g., "joining us from Fidelity" won't trigger a mute).
 - **Sliding Caption Window**: Analyzes both the latest caption line and a sliding window of recent lines for broader context.
 - **Program Detection**: 33 CNBC anchor names, 14 named segments, 11 return-from-break phrases, and ~50 allow phrases for strong program identification.
-- **Ad Lock Mechanism**: Maintains mute for 75 seconds (configurable) during commercial breaks to prevent rapid toggling.
+- **Tuning Session**: Timed 5-minute diagnostic workflow with signal snapshots, active flagging, post-session questionnaire, and downloadable JSON report for weight tuning.
+- **Ad Lock Mechanism**: Maintains mute for 45 seconds (configurable) during commercial breaks to prevent rapid toggling.
 - **Program Quorum System**: Requires consecutive program-leaning captions before unmuting to avoid false positives.
 - **Structured Feedback System**: Flag false positives/negatives with full signal breakdown capture for analysis and weight tuning.
 - **Volume Ramping**: Smooth ease-in volume ramp on unmute (1.5s default, configurable) instead of jarring instant unmute.
@@ -92,6 +93,7 @@ Each signal contributes a positive (ad-leaning) or negative (program-leaning) we
 - **Ctrl+D**: Download caption log
 - **Ctrl+Shift+S**: Open settings panel
 - **Ctrl+Shift+F**: Flag incorrect state (captures full signal breakdown)
+- **Ctrl+Shift+T**: Start/stop tuning session
 
 ### Settings Panel
 
@@ -123,6 +125,21 @@ Click the red "Flag Incorrect State" button (or press Ctrl+Shift+F) when the scr
 
 Download feedback as JSON from the settings panel for analysis and weight tuning.
 
+### Tuning Session
+
+The tuning session is a structured 5-minute workflow for collecting high-quality diagnostic data:
+
+1. **Start**: Click "Start Tuning" button (bottom-left) or press **Ctrl+Shift+T**
+2. **Watch**: Pay close attention and flag every incorrect mute/unmute with the "Flag Incorrect State" button
+3. **Timer**: HUD shows countdown (e.g., `[TUNING 3:45]`) so you know when the session ends
+4. **Post-session dialog**: After the timer expires, a dialog asks:
+   - Were there commercial breaks during this session?
+   - Where were most incorrect states? (false positives / false negatives / both / none)
+   - Optional notes
+5. **Download report**: Comprehensive JSON file with signal snapshots (every 5s), all flags, caption log, settings, and your feedback
+
+Share the downloaded tuning report in a new session for analysis and weight tuning to improve accuracy.
+
 ## Configuration
 
 ### Key Settings
@@ -130,16 +147,17 @@ Download feedback as JSON from the settings panel for analysis and weight tuning
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `intervalMs` | 150 | How often to check captions (ms) |
-| `confidenceThreshold` | 65 | Mute when confidence >= this (0-100) |
+| `confidenceThreshold` | 72 | Mute when confidence >= this (0-100) |
 | `muteOnNoCCDelayMs` | 2500 | How quickly to mute when captions disappear (ms) |
 | `noCcHitsToMute` | 2 | Consecutive no-caption checks before muting |
-| `minAdLockMs` | 75000 | Minimum ad lock duration (75 seconds) |
+| `minAdLockMs` | 45000 | Minimum ad lock duration (45 seconds) |
 | `programVotesNeeded` | 2 | Program signals needed before unmute consideration |
 | `programQuorumLines` | 3 | Consecutive program captions needed to unmute |
 | `unmuteDebounceMs` | 350 | Delay before unmuting after program detected (ms) |
 | `manualOverrideMs` | 8000 | Override duration after flagging false positive (ms) |
 | `captionWindowSize` | 5 | Number of recent caption lines for window analysis |
 | `volumeRampMs` | 1500 | Volume ramp duration on unmute (0 = instant) |
+| `tuningDurationMs` | 300000 | Tuning session length (5 minutes) |
 
 ### Phrase Lists
 

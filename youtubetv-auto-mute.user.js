@@ -31,7 +31,7 @@
   }catch{}
   Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,
     hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
-    flagBtn:null,btnContainer:null,settingsBtn:null,muteBtn:null,_lastUrl:location.href});
+    flagBtn:null,btnContainer:null,settingsBtn:null,muteBtn:null,tuningBtn:null,_lastUrl:location.href});
 
   /* ---------- STORAGE SHIMS ---------- */
   const hasGM_get = typeof GM_getValue==='function';
@@ -107,6 +107,7 @@
 
     captionWindowSize:5,     // Number of recent caption lines to keep
     volumeRampMs:1500,       // Volume ramp duration on unmute (0 = instant)
+    tuningDurationMs:300000, // Tuning session length (5 min default)
 
     captionLogLimit:8000,
     autoDownloadEveryMin:0,
@@ -306,6 +307,11 @@
     manualMuteActive: false,
     captionWindow: [],
     lastSignals: [],
+    tuningActive: false,
+    tuningStartMs: 0,
+    tuningSnapshots: [],
+    tuningFlags: [],
+    tuningLogStartIdx: 0,
 
     reset(full = false) {
       if (full) {
@@ -863,7 +869,13 @@
     }
     State.lastMuteState=shouldMute;
 
-    const statusPrefix = State.manualMuteActive ? '[MANUAL MUTE] ' : (State.enabled?'':'[PAUSED] ');
+    let statusPrefix = State.manualMuteActive ? '[MANUAL MUTE] ' : (State.enabled?'':'[PAUSED] ');
+    if (State.tuningActive) {
+      const remaining = Math.max(0, S.tuningDurationMs - (Date.now() - State.tuningStartMs));
+      const min = Math.floor(remaining / 60000);
+      const sec = Math.floor((remaining % 60000) / 1000);
+      statusPrefix = '[TUNING ' + min + ':' + String(sec).padStart(2, '0') + '] ' + statusPrefix;
+    }
     // Truncate CC snippet for HUD display stability (max 60 chars)
     const hudCcSnippet = truncate(info.ccSnippet, 60);
     updateHUDText(
@@ -956,6 +968,22 @@
       confidence,
       signals,
     });
+
+    // Tuning session snapshot collection
+    if (State.tuningActive) {
+      const elapsed = t - State.tuningStartMs;
+      const lastSnap = State.tuningSnapshots[State.tuningSnapshots.length - 1];
+      if (!lastSnap || elapsed - lastSnap.elapsed >= 5000) {
+        State.tuningSnapshots.push({
+          elapsed, ts: nowStr(), confidence, muted: decision.shouldMute,
+          reason: decision.reason,
+          signals: signals.map(s => ({source:s.source, weight:s.weight, match:s.match})),
+          caption: truncate(ccText, 200),
+          adLock: t < State.adLockUntil,
+        });
+      }
+      if (elapsed >= S.tuningDurationMs) endTuningSession();
+    }
   }
 
   function tick(){
@@ -1078,6 +1106,17 @@
     flagBtn.style.cssText=btnStyle.replace('#1f6feb','#e5534b');
     flagBtn.addEventListener('click',flagIncorrectState);
     container.appendChild(flagBtn); NS.flagBtn=flagBtn;
+
+    // Start Tuning Session button
+    const tuneBtn=document.createElement('button');
+    tuneBtn.textContent='Start Tuning';
+    tuneBtn.style.cssText=btnStyle.replace('#1f6feb','#238636');
+    tuneBtn.addEventListener('click',()=>{
+      if(State.tuningActive)stopTuningSession();
+      else startTuningSession();
+    });
+    container.appendChild(tuneBtn);
+    NS.tuningBtn=tuneBtn;
   }
 
   function flagIncorrectState(){
@@ -1101,6 +1140,7 @@
     };
 
     _feedbackLog.push(entry);
+    if (State.tuningActive) State.tuningFlags.push(entry);
     kvSet(FEEDBACK_KEY, _feedbackLog);
 
     pushEventLog('FLAG_INCORRECT_STATE',{
@@ -1125,6 +1165,127 @@
     }
 
     log('Feedback logged:', entry.action, 'confidence:', entry.confidence, 'signals:', entry.signals.length);
+  }
+
+  /* ---------- TUNING SESSION ---------- */
+  function startTuningSession() {
+    State.tuningActive = true;
+    State.tuningStartMs = Date.now();
+    State.tuningSnapshots = [];
+    State.tuningFlags = [];
+    State.tuningLogStartIdx = window._captions_log.length;
+    log('Tuning session started (' + (S.tuningDurationMs / 60000) + ' min)');
+    if (NS.tuningBtn) {
+      NS.tuningBtn.textContent = 'Stop Tuning';
+      NS.tuningBtn.style.background = '#e5534b';
+    }
+  }
+
+  function stopTuningSession() {
+    if (!State.tuningActive) return;
+    State.tuningActive = false;
+    log('Tuning session ended');
+    if (NS.tuningBtn) {
+      NS.tuningBtn.textContent = 'Start Tuning';
+      NS.tuningBtn.style.background = '#238636';
+    }
+    showTuningDialog();
+  }
+
+  function endTuningSession() { stopTuningSession(); }
+
+  function showTuningDialog() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center';
+    const dialog = document.createElement('div');
+    dialog.style.cssText = 'background:#111;color:#fff;border:1px solid #333;border-radius:10px;padding:20px;max-width:480px;width:90vw;font:13px/1.5 system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5)';
+    const snaps = State.tuningSnapshots;
+    const flags = State.tuningFlags;
+    const mutedCount = snaps.filter(s => s.muted).length;
+    const mutePercent = snaps.length ? Math.round((mutedCount / snaps.length) * 100) : 0;
+    const avgConf = snaps.length ? Math.round(snaps.reduce((a, s) => a + s.confidence, 0) / snaps.length) : 0;
+    const durationSec = Math.round((Date.now() - State.tuningStartMs) / 1000);
+    const fpCount = flags.filter(f => f.action === 'FALSE_POSITIVE').length;
+    const fnCount = flags.filter(f => f.action === 'FALSE_NEGATIVE').length;
+    const dlgBtn = 'background:#1f6feb;border:none;color:#fff;padding:8px 14px;border-radius:7px;cursor:pointer;font:13px system-ui,sans-serif';
+    dialog.innerHTML =
+      '<div style="font-weight:700;font-size:16px;margin-bottom:12px;">Tuning Session Complete</div>' +
+      '<div style="background:#0d1117;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;line-height:1.8;">' +
+        '<div>Duration: <b>' + Math.floor(durationSec / 60) + 'm ' + (durationSec % 60) + 's</b></div>' +
+        '<div>Snapshots: <b>' + snaps.length + '</b> | Muted: <b>' + mutePercent + '%</b> | Avg confidence: <b>' + avgConf + '</b></div>' +
+        '<div>Flags: <b>' + flags.length + '</b> (FP: ' + fpCount + ', FN: ' + fnCount + ')</div>' +
+      '</div>' +
+      '<div style="margin-bottom:10px;">' +
+        '<div style="font-weight:600;margin-bottom:6px;">Were there commercial breaks during this session?</div>' +
+        '<label style="margin-right:12px;"><input type="radio" name="yttp-had-ads" value="yes"> Yes</label>' +
+        '<label style="margin-right:12px;"><input type="radio" name="yttp-had-ads" value="no"> No</label>' +
+        '<label><input type="radio" name="yttp-had-ads" value="unsure" checked> Unsure</label>' +
+      '</div>' +
+      '<div style="margin-bottom:10px;">' +
+        '<div style="font-weight:600;margin-bottom:6px;">Where were most incorrect states?</div>' +
+        '<label style="display:block;margin:3px 0;"><input type="radio" name="yttp-error-loc" value="show_muted"> Show muted as ad (false positives)</label>' +
+        '<label style="display:block;margin:3px 0;"><input type="radio" name="yttp-error-loc" value="ad_not_muted"> Ads not muted (false negatives)</label>' +
+        '<label style="display:block;margin:3px 0;"><input type="radio" name="yttp-error-loc" value="both"> Both</label>' +
+        '<label style="display:block;margin:3px 0;"><input type="radio" name="yttp-error-loc" value="none" checked> None noticed / worked well</label>' +
+      '</div>' +
+      '<div style="margin-bottom:14px;">' +
+        '<div style="font-weight:600;margin-bottom:6px;">Notes (optional)</div>' +
+        '<textarea id="yttp-tuning-notes" rows="3" style="width:100%;box-sizing:border-box;background:#000;color:#fff;border:1px solid #333;border-radius:7px;padding:6px;font:12px system-ui,sans-serif;" placeholder="Any observations about what went wrong..."></textarea>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<button id="yttp-tuning-dl" style="' + dlgBtn + '">Download Report</button>' +
+        '<button id="yttp-tuning-close" style="' + dlgBtn + ';background:#444">Close</button>' +
+      '</div>';
+    overlay.appendChild(dialog);
+    document.documentElement.appendChild(overlay);
+    dialog.querySelector('#yttp-tuning-dl').onclick = () => {
+      const hadAds = (dialog.querySelector('input[name="yttp-had-ads"]:checked') || {}).value || 'unsure';
+      const errorLoc = (dialog.querySelector('input[name="yttp-error-loc"]:checked') || {}).value || 'none';
+      const notes = (dialog.querySelector('#yttp-tuning-notes') || {}).value || '';
+      downloadTuningReport(hadAds, errorLoc, notes);
+    };
+    dialog.querySelector('#yttp-tuning-close').onclick = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  }
+
+  function downloadTuningReport(hadAds, errorLoc, notes) {
+    const captions = window._captions_log.slice(State.tuningLogStartIdx);
+    const snaps = State.tuningSnapshots;
+    const flags = State.tuningFlags;
+    const mutedCount = snaps.filter(s => s.muted).length;
+    const report = {
+      version: '4.0.0',
+      reportType: 'tuning_session',
+      sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
+      startTime: new Date(State.tuningStartMs).toISOString(),
+      endTime: new Date().toISOString(),
+      durationMs: Date.now() - State.tuningStartMs,
+      url: location.href,
+      settings: {
+        confidenceThreshold: S.confidenceThreshold,
+        minAdLockMs: S.minAdLockMs,
+        muteOnNoCCDelayMs: S.muteOnNoCCDelayMs,
+        programVotesNeeded: S.programVotesNeeded,
+        programQuorumLines: S.programQuorumLines,
+        captionWindowSize: S.captionWindowSize,
+      },
+      userFeedback: { hadCommercials: hadAds, incorrectStateLocation: errorLoc, notes },
+      stats: {
+        totalSnapshots: snaps.length,
+        mutedSnapshots: mutedCount,
+        mutePercent: snaps.length ? Math.round((mutedCount / snaps.length) * 100) : 0,
+        avgConfidence: snaps.length ? Math.round(snaps.reduce((a, s) => a + s.confidence, 0) / snaps.length) : 0,
+        totalFlags: flags.length,
+        falsePositives: flags.filter(f => f.action === 'FALSE_POSITIVE').length,
+        falseNegatives: flags.filter(f => f.action === 'FALSE_NEGATIVE').length,
+      },
+      flags,
+      snapshots: snaps,
+      captions,
+    };
+    const d = new Date(), pad = n => String(n).padStart(2, '0');
+    const name = 'yttp_tuning_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + '.json';
+    downloadText(name, JSON.stringify(report, null, 2));
   }
 
   /* ---------- SETTINGS PANEL ---------- */
@@ -1159,6 +1320,7 @@
     { id: 'manualOverrideMs', tab: 'timing', type: 'number', min: 0, max: 60000, label: 'Manual override (ms)' },
     { id: 'captionWindowSize', tab: 'timing', type: 'number', min: 1, max: 20, label: 'Caption window size (lines)', section: 'Caption Window' },
     { id: 'volumeRampMs', tab: 'timing', type: 'number', min: 0, max: 5000, label: 'Volume ramp on unmute (ms)' },
+    { id: 'tuningDurationMs', tab: 'timing', type: 'number', min: 60000, max: 600000, label: 'Tuning session (ms)', section: 'Tuning' },
     // Phrases tab
     { id: 'hardPhrases', tab: 'phrases', type: 'textarea', rows: 7, label: 'Hard Ad Phrases' },
     { id: 'brandTerms', tab: 'phrases', type: 'textarea', rows: 6, label: 'Brand Terms' },
@@ -1239,33 +1401,33 @@
     for (const tn of tabNames) { if (openSection[tn]) tabContent[tn] += `</div>`; }
 
     // Actions tab (static)
+    const kbdS='background:#222;border:1px solid #444;border-radius:4px;padding:1px 6px;font:11px ui-monospace,Menlo,Consolas,monospace;color:#aaa;white-space:nowrap';
+    const menuBtn=(id,label,shortcut,bg)=>`<button id="${id}" style="${btnS}${bg?';background:'+bg:''};display:flex;justify-content:space-between;align-items:center;width:100%;"><span>${label}</span>${shortcut?'<kbd style="'+kbdS+'">'+shortcut+'</kbd>':''}</button>`;
     tabContent.actions = `
       <div style="display:grid;gap:8px;">
+        <div style="font-weight:600;font-size:13px;">Controls</div>
+        ${menuBtn('toggleEnabled','Toggle Script On/Off','Ctrl+M')}
+        ${menuBtn('flagState','Flag Incorrect State','Ctrl+Shift+F','#e5534b')}
+        ${menuBtn('startTuning','Start Tuning Session','Ctrl+Shift+T','#238636')}
+        <div style="font-size:12px;color:#888;margin-top:-4px;">Timed diagnostic session — actively flag errors, then download a report for analysis.</div>
+      </div>
+      <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+        <div style="font-weight:600;font-size:13px;">Logs</div>
+        ${menuBtn('dl','Download Captions','Ctrl+D')}
+        ${menuBtn('dlFeedback','Download Feedback Log (JSON)','')}
+        ${menuBtn('clearlog','Clear Caption Log','','#8b0000')}
+        ${menuBtn('clearFeedback','Clear Feedback Log','','#8b0000')}
+      </div>
+      <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
         <div style="font-weight:600;font-size:13px;">Caption Logging</div>
-        <label>Auto-download captions every N minutes (0=off) <input id="autoDownloadEveryMin" type="number" min="0" max="360" style="${inputS}"></label>
+        <label>Auto-download every N minutes (0=off) <input id="autoDownloadEveryMin" type="number" min="0" max="360" style="${inputS}"></label>
         <label>Caption log limit (lines) <input id="captionLogLimit" type="number" min="200" max="50000" style="${inputS}"></label>
       </div>
       <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
-        <div style="font-weight:600;font-size:13px;">Quick Actions</div>
-        <button id="dl" style="${btnS}">Download Captions (Ctrl+D)</button>
-        <button id="clearlog" style="${btnS};background:#8b0000">Clear Caption Log</button>
-      </div>
-      <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
-        <div style="font-weight:600;font-size:13px;">Feedback Log</div>
-        <button id="dlFeedback" style="${btnS}">Download Feedback Log (JSON)</button>
-        <button id="clearFeedback" style="${btnS};background:#8b0000">Clear Feedback Log</button>
-      </div>
-      <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
         <div style="font-weight:600;font-size:13px;">Settings Management</div>
-        <button id="export" style="${btnS}">Export Settings to File</button>
-        <label style="${btnS};display:inline-block;position:relative;overflow:hidden;">Import Settings<input id="import" type="file" accept="application/json" style="opacity:0;position:absolute;left:0;top:0;width:100%;height:100%;cursor:pointer;"></label>
-        <button id="reset" style="${btnS};background:#444">Reset All to Defaults</button>
-      </div>
-      <div style="border-top:1px solid #333;padding-top:8px;">
-        <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Keyboard Shortcuts</div>
-        <div style="font-size:12px;color:#bbb;line-height:1.6;">
-          <b>Ctrl+M</b> Toggle mute | <b>Ctrl+D</b> Download log | <b>Ctrl+Shift+S</b> Settings | <b>Ctrl+Shift+F</b> Flag incorrect
-        </div>
+        ${menuBtn('export','Export Settings to File','')}
+        <label style="${btnS};display:flex;justify-content:center;align-items:center;position:relative;overflow:hidden;">Import Settings<input id="import" type="file" accept="application/json" style="opacity:0;position:absolute;left:0;top:0;width:100%;height:100%;cursor:pointer;"></label>
+        ${menuBtn('reset','Reset All to Defaults','','#444')}
       </div>`;
 
     const tabBar = tabNames.map((tn,i) =>
@@ -1313,6 +1475,8 @@
 
     // Action buttons
     panel.querySelector('#yttp-close').onclick = () => togglePanel();
+    panel.querySelector('#toggleEnabled').onclick = () => { State.enabled = !State.enabled; log(`Toggled → ${State.enabled ? 'ENABLED' : 'PAUSED'}`); };
+    panel.querySelector('#flagState').onclick = () => { flagIncorrectState(); togglePanel(); };
     panel.querySelector('#dl').onclick = downloadCaptionsNow;
     panel.querySelector('#clearlog').onclick = () => { window._captions_log = []; kvSet(CAPLOG_KEY, window._captions_log); alert('Caption log cleared.'); };
     panel.querySelector('#dlFeedback').onclick = () => downloadText('yttp_feedback.json', JSON.stringify(_feedbackLog, null, 2));
@@ -1328,6 +1492,12 @@
       r.readAsText(f);
     };
     panel.querySelector('#reset').onclick = () => { if (!confirm('Reset to defaults?')) return; S = { ...DEFAULTS }; PhraseIndex.rebuild(S); saveSettings(S); applySettings(true); NS.panelEl.remove(); NS.panelEl = null; buildPanel(); };
+    const _tuneBtn = panel.querySelector('#startTuning');
+    if (_tuneBtn) {
+      const _tuneLbl = _tuneBtn.querySelector('span');
+      if (State.tuningActive && _tuneLbl) { _tuneLbl.textContent = 'Stop Tuning Session'; _tuneBtn.style.background = '#e5534b'; }
+      _tuneBtn.onclick = () => { if (State.tuningActive) stopTuningSession(); else { startTuningSession(); togglePanel(); } };
+    }
     panel.querySelector('#yttp-save').onclick = () => {
       Object.assign(S, readPanel(panel));
       S.autoDownloadEveryMin = clampInt(panel.querySelector('#autoDownloadEveryMin').value, 0, 360, DEFAULTS.autoDownloadEveryMin);
@@ -1348,6 +1518,7 @@
     if(e.ctrlKey && (e.key==='d'||e.key==='D')){downloadCaptionsNow();e.preventDefault();}
     if(e.ctrlKey && e.shiftKey && (e.key==='s'||e.key==='S')){togglePanel();e.preventDefault();}
     if(e.ctrlKey && e.shiftKey && (e.key==='f'||e.key==='F')){flagIncorrectState();e.preventDefault();}
+    if(e.ctrlKey && e.shiftKey && (e.key==='t'||e.key==='T')){if(State.tuningActive)stopTuningSession();else startTuningSession();e.preventDefault();}
   },true);
 
   /* ---------- BOOT ---------- */
