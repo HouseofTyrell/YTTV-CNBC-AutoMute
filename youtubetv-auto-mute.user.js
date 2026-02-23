@@ -86,16 +86,16 @@
     // Confidence Meter
     showConfidenceMeter:true,
     confidenceMeterStyle:'bar',  // 'bar', 'numeric', 'both'
-    confidenceThreshold:70,      // Mute when confidence >= this value (0-100)
+    confidenceThreshold:65,      // Mute when confidence >= this value (0-100)
     showHudSlider:true,          // Show threshold slider on HUD (can disable to reduce HUD size)
 
     // Timing / CC loss
-    muteOnNoCCDelayMs:180,   // lower/faster
+    muteOnNoCCDelayMs:2500,  // ms before muting on caption loss
     noCcHitsToMute:2,        // needs consecutive hits
     unmuteDebounceMs:350,    // reduced from 500 for faster unmute
 
     // Ad lock
-    minAdLockMs:20000,
+    minAdLockMs:75000,       // 75s covers typical CNBC ad breaks
 
     // Program gating
     programVotesNeeded:2,
@@ -115,34 +115,61 @@
       "ask your doctor","talk to your doctor","call your doctor","side effects include",
       "do not take if you are allergic","risk of serious","use as directed","available by prescription",
       "eligible patients",
+      // additional pharma disclaimers
+      "tell your doctor about all the medicines you take","important safety information",
+      "results may vary","individual results","injection site reactions","risk of thyroid tumors",
+      // paid programming
+      "paid programming","paid advertisement","the following is a paid","the preceding was a paid",
 
       // finance/offer
       "terms apply","limited time offer","0% apr","zero percent apr","get started today","apply today",
       "see store for details","not available in all states","learn more at","learn more on","visit",
       "get your money right","policy for only","guaranteed buyback option","own your place in the future",
 
-      // MEDICARE/BENEFITS (strong)
-      "medicare","medicare advantage","part c","dual-eligible","special needs plan",
-      "enrollment ends","annual election period","aep","open enrollment","enroll by",
+      // MEDICARE/BENEFITS — strong ad signals kept here
       "licensed agent","call the number","tty",
-      "over-the-counter","otc","benefits card","allowance","prepaid card","supplemental benefits",
-      "$0 premium","$0 copay","in-network","out-of-network","formulary","prescription drug coverage",
-      "talk to a licensed agent","speak to a licensed agent","humana","unitedhealthcare","anthem","aetna"
+      "$0 premium","$0 copay","speak to a licensed agent","talk to a licensed agent"
     ].join('\n'),
 
     brandTerms: [
+      // Telecom
       "capital one","t-mobile","tmobile","verizon","at&t","att","comcast","xfinity",
-      "liberty mutual","progressive","geico","state farm","allstate",
+      // Insurance
+      "liberty mutual","progressive","geico","state farm","allstate","nationwide","usaa","farmers","travelers",
+      // Pharma
       "ozempic","mounjaro","trulicity","jardiance","humira","rinvoq","skyrizi",
-      "iphone","whopper","medicare","humana","unitedhealthcare","aarp"
+      "dupixent","keytruda","eliquis","xarelto","otezla","cosentyx","entresto","farxiga","rybelsus","wegovy",
+      // Medicare / health plan brands (moved from hardPhrases for context-aware scoring)
+      "medicare","medicare advantage","part c","dual-eligible","special needs plan",
+      "enrollment ends","annual election period","aep","open enrollment","enroll by",
+      "humana","unitedhealthcare","anthem","aetna","cigna","centene","molina",
+      "over-the-counter","otc","benefits card","allowance","prepaid card","supplemental benefits",
+      "in-network","out-of-network","formulary","prescription drug coverage",
+      // Financial
+      "fidelity","schwab","charles schwab","ameritrade","td ameritrade","e-trade","etrade","robinhood",
+      "vanguard","blackrock","jp morgan","jpmorgan","goldman sachs","morgan stanley",
+      "merrill lynch","wells fargo","citibank","citi","bank of america","sofi","ally bank","chime",
+      // Tech
+      "iphone","samsung","google pixel","microsoft","salesforce","oracle","ibm","dell","cisco",
+      // Gold / precious metals
+      "rosland capital","goldco","augusta precious metals","birch gold","noble gold",
+      // Auto
+      "toyota","ford","chevrolet","chevy","honda","hyundai","kia","nissan","bmw","mercedes","lexus",
+      // Legal
+      "if you or a loved one","class action","lawsuit","mesothelioma",
+      // Other
+      "aarp","whopper","subway","expedia","trivago","indeed","ziprecruiter"
     ].join('\n'),
 
     adContext: [
-      "sponsored by","brought to you by","presented by",
+      "sponsored by","brought to you by","presented by","paid for by","underwritten by",
       "offer ends","apply now","apply today","learn more","visit","sign up","join now",
       "get started","start today","enroll","enrollment","speak to an agent","licensed agent",
       ".com","dot com","call now","call today","call the number","free shipping","save today",
-      "see details","member fdic","not fdic insured","policy","quote"
+      "see details","member fdic","not fdic insured","policy","quote",
+      "promo code","use code","discount code","limited supply","while supplies last",
+      "satisfaction guaranteed","money-back guarantee","no obligation","risk-free",
+      "available at","sold at","find it at","order yours","order now","shop now"
     ].join('\n'),
 
     ctaTerms: ["apply","sign up","join now","call","visit","learn more","enroll","enrollment","get started","download","claim","see details","speak to an agent","licensed agent"],
@@ -156,14 +183,57 @@
       "economic data","cpi","ppi","jobs report","nonfarm payrolls",
       "market breadth","s&p","nasdaq","dow","back to you","we're back","we are back","back with",
       "chief investment officer","portfolio manager","senior analyst","ceo","cfo","chair",
-      "welcome to closing bell","overtime is back","welcome back"
+      "welcome to closing bell","overtime is back","welcome back",
+      // CNBC show names
+      "squawk box","squawk on the street","power lunch","fast money","mad money",
+      "halftime report","money movers","last call","worldwide exchange","the exchange",
+      "cnbc special report",
+      // Welcome variants
+      "welcome to squawk","welcome to power lunch","welcome to fast money",
+      "welcome to the halftime report","welcome to mad money",
+      // Conversational anchoring
+      "let's get to","let's bring in","let's go to","i want to bring in",
+      "thanks for being with us","thank you for joining us","good to have you",
+      "appreciate your time","let's get a check on",
+      // Market / macro terms
+      "the ten-year","treasury yield","federal reserve","rate cut","rate hike","basis points",
+      // Teaser / transition
+      "take a look at this","straight ahead","still to come","coming up","up next on"
     ],
 
     // Explicit break cues — enter ad-lock quickly
     breakPhrases: [
       "back after this","we'll be right back","we will be right back",
       "stay with us","more after the break","right after this break",
-      "the exchange is back after this"
+      "the exchange is back after this",
+      "don't go anywhere","stick around","after the break","when we come back",
+      "we'll have more after this"
+    ],
+
+    // CNBC anchor names — program signal
+    anchorNames: [
+      "sara eisen","scott wapner","jim cramer","carl quintanilla","david faber",
+      "melissa lee","kelly evans","joe kernen","becky quick","andrew ross sorkin",
+      "brian sullivan","tyler mathisen","rick santelli","steve liesman","mike santoli",
+      "diana olick","robert frank","meg tirrell","dominic chu","leslie picker",
+      "kate rooney","courtney reagan","deirdre bosa","julia boorstin","frank holland",
+      "contessa brewer","seema mody","kristina partsinevelos","bertha coombs",
+      "guy adami","karen finerman","tim seymour","dan nathan"
+    ],
+
+    // Named CNBC segments — program signal
+    segmentNames: [
+      "final trades","lightning round","stop trading","call of the day","stock draft",
+      "investment committee","options action","cramer's game plan","cramer's lightning round",
+      "off the charts","the bottom line","market zone","halftime overtime","unusual activity"
+    ],
+
+    // Return-from-break phrases — strong program signal
+    returnFromBreakPhrases: [
+      "and we are back","all right we are back","okay we are back",
+      "welcome back everybody","welcome back to squawk","welcome back to closing bell",
+      "welcome back to the halftime report","welcome back to power lunch",
+      "welcome back to fast money","before the break we were","as we were discussing"
     ],
   };
 
@@ -734,7 +804,7 @@
 
   /* ---------- PROGRAM ANCHOR REGEX ---------- */
   const PROGRAM_ANCHOR_RE = new RegExp(
-    String.raw`\b(joins us now|joining me now|welcome to|welcome back|we'?re back|back with|back to you|from washington|live (?:in|at)|earnings|beat estimates|raised guidance|analyst|conference call|tariffs?|supreme court|breaking news|economic data|cpi|ppi|jobs report|nonfarm payrolls|market (?:breadth|reaction)|s&p|nasdaq|dow|chief investment officer|portfolio manager|senior analyst|ceo|cfo|chair|closing bell|overtime)\b`,
+    String.raw`\b(joins us now|joining me now|welcome to|welcome back|we'?re back|back with|back to you|from washington|live (?:in|at)|earnings|beat estimates|raised guidance|analyst|conference call|tariffs?|supreme court|breaking news|economic data|cpi|ppi|jobs report|nonfarm payrolls|market (?:breadth|reaction)|s&p|nasdaq|dow|chief investment officer|portfolio manager|senior analyst|ceo|cfo|chair|closing bell|overtime|squawk box|squawk on the street|power lunch|fast money|mad money|halftime report|money movers|last call|worldwide exchange|the exchange|lightning round|final trades|stop trading)\b`,
     'i'
   );
 
