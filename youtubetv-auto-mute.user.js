@@ -46,6 +46,22 @@
     setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},300);
   };
 
+  /* ---------- UTILITIES ---------- */
+  const truncate = (text, max = 140) =>
+    text ? (text.length > max ? text.slice(0, max - 3) + '\u2026' : text) : '';
+
+  /* ---------- DEBOUNCED LOG FLUSH ---------- */
+  let _logDirty = false;
+  let _logFlushTimer = null;
+  function scheduleLogFlush() {
+    _logDirty = true;
+    if (_logFlushTimer) return;
+    _logFlushTimer = setTimeout(() => {
+      _logFlushTimer = null;
+      if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
+    }, 5000);
+  }
+
   /* ---------- DEFAULTS ---------- */
   const DEFAULTS={
     useTrueMute:true,
@@ -165,20 +181,67 @@
   let CTA_TERMS       = Array.isArray(S.ctaTerms)?S.ctaTerms.map(s=>s.toLowerCase()):toLines(S.ctaTerms?.join?.('\n')||'');
   let OFFER_TERMS     = Array.isArray(S.offerTerms)?S.offerTerms.map(s=>s.toLowerCase()):toLines(S.offerTerms?.join?.('\n')||'');
 
+  /* ---------- VERDICT ENUM ---------- */
+  const Verdict = Object.freeze({
+    AD_HARD: 'AD_HARD',
+    AD_BREAK: 'AD_BREAK',
+    AD_BRAND_WITH_CONTEXT: 'AD_BRAND_WITH_CONTEXT',
+    AD_SIGNAL_SCORE: 'AD_SIGNAL_SCORE',
+    PROGRAM_ALLOW: 'PROGRAM_ALLOW',
+    PROGRAM_ANCHOR: 'PROGRAM_ANCHOR',
+    PROGRAM: 'PROGRAM',
+  });
+  const isAdVerdict = (v) => v === Verdict.AD_HARD || v === Verdict.AD_BREAK ||
+    v === Verdict.AD_BRAND_WITH_CONTEXT || v === Verdict.AD_SIGNAL_SCORE;
+  const isProgramVerdict = (v) => v === Verdict.PROGRAM || v === Verdict.PROGRAM_ANCHOR;
+
   /* ---------- STATE ---------- */
   const log=(...a)=>{if(S.debug)console.log('[YTTV-Mute]',...a);};
   const nowStr=()=>new Date().toLocaleTimeString();
   const CAPLOG_KEY='captions_log';
-  window._captions_log = Array.isArray(kvGet(CAPLOG_KEY,[]))?kvGet(CAPLOG_KEY,[]):[];
+  const _loadedLog = kvGet(CAPLOG_KEY, []);
+  window._captions_log = Array.isArray(_loadedLog) ? _loadedLog : [];
 
-  let enabled=true, videoRef=null, lastMuteState=null, lastCaptionLine='';
-  let lastCcSeenMs=0, lastProgramGoodMs=0, lastAutoDlMs=Date.now(), rafScheduled=false;
-  let adLockUntil=0, programVotes=0, manualOverrideUntil=0;
-  let noCcConsec=0, bottomConsec=0;
-  let programQuorumCount=0;   // NEW
-  let lastCaptionVisibility=null;  // Track last visibility state to avoid flickering
-  let currentConfidence=0;  // Confidence score (0-100)
-  let manualMuteActive=false;  // Manual mute button state
+  const State = {
+    enabled: true,
+    videoRef: null,
+    lastMuteState: null,
+    lastCaptionLine: '',
+    lastCcSeenMs: 0,
+    lastProgramGoodMs: 0,
+    lastAutoDlMs: Date.now(),
+    rafScheduled: false,
+    adLockUntil: 0,
+    programVotes: 0,
+    manualOverrideUntil: 0,
+    noCcConsec: 0,
+    bottomConsec: 0,
+    programQuorumCount: 0,
+    lastCaptionVisibility: null,
+    currentConfidence: 0,
+    manualMuteActive: false,
+    captionWindow: [],
+    lastSignals: [],
+
+    reset(full = false) {
+      if (full) {
+        this.lastMuteState = null;
+        this.lastCaptionLine = '';
+        this.videoRef = null;
+      }
+      this.lastCcSeenMs = Date.now();
+      this.lastProgramGoodMs = 0;
+      this.adLockUntil = 0;
+      this.programVotes = 0;
+      this.manualOverrideUntil = 0;
+      this.noCcConsec = 0;
+      this.bottomConsec = 0;
+      this.programQuorumCount = 0;
+      this.lastCaptionVisibility = null;
+      this.currentConfidence = 0;
+      this.captionWindow = [];
+    }
+  };
 
   const URL_RE=/\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i;
   const PHONE_RE=/\b(?:\d{3}[-\s.]?\d{3}[-\s.]?\d{4})\b/;
@@ -210,21 +273,20 @@
     const features = analyzeTextFeatures(ccText);
 
     // Verdict-based confidence
-    if(verdict==='AD_HARD'){
+    if(verdict===Verdict.AD_HARD){
       confidence = 95;
-      // Medicare/benefits boost
       if(matched && (matched.includes('medicare')||matched.includes('enrollment')||matched.includes('licensed agent'))){
         confidence = 98;
       }
     }
-    else if(verdict==='AD_BREAK') confidence = 90;
-    else if(verdict==='AD_BRAND_WITH_CONTEXT') confidence = 85;
-    else if(verdict==='AD_SIGNAL_SCORE'){
-      confidence = 70 + Math.min(20, noCcMs/200); // Grows with no-CC duration
+    else if(verdict===Verdict.AD_BREAK) confidence = 90;
+    else if(verdict===Verdict.AD_BRAND_WITH_CONTEXT) confidence = 85;
+    else if(verdict===Verdict.AD_SIGNAL_SCORE){
+      confidence = 70 + Math.min(20, noCcMs/200);
     }
-    else if(verdict==='PROGRAM_ALLOW') confidence = 5;
-    else if(verdict==='PROGRAM_ANCHOR') confidence = 15;
-    else if(verdict==='PROGRAM') confidence = 30;
+    else if(verdict===Verdict.PROGRAM_ALLOW) confidence = 5;
+    else if(verdict===Verdict.PROGRAM_ANCHOR) confidence = 15;
+    else if(verdict===Verdict.PROGRAM) confidence = 30;
 
     // Text feature adjustments
     if(features.capsRatio>0.3) confidence += 8; // Lots of caps = likely ad
@@ -243,12 +305,12 @@
     if(captionsBottomed) confidence += 5;
 
     // Lock state affects confidence display
-    const lockActive = Date.now() < adLockUntil;
-    if(lockActive && confidence<70) confidence = 70; // Show we're in ad lock
+    const lockActive = Date.now() < State.adLockUntil;
+    if(lockActive && confidence<70) confidence = 70;
 
     // Program quorum progress (reduces confidence)
-    if(programQuorumCount>0){
-      confidence -= programQuorumCount*5;
+    if(State.programQuorumCount>0){
+      confidence -= State.programQuorumCount*5;
     }
 
     // Clamp to 0-100
@@ -354,11 +416,11 @@
       'box-shadow:0 6px 18px rgba(0,0,0,.3)','cursor:pointer','pointer-events:auto'
     ].join(';');
     btn.addEventListener('click',()=>{
-      manualMuteActive = !manualMuteActive;
-      btn.textContent = manualMuteActive ? '🔇' : '🔊';
-      btn.style.background = manualMuteActive ? '#8b0000' : '#444';
-      btn.title = manualMuteActive ? 'Manual Mute Active (Click to Unmute)' : 'Manual Mute Toggle';
-      log(`Manual mute ${manualMuteActive?'ENABLED':'DISABLED'}`);
+      State.manualMuteActive = !State.manualMuteActive;
+      btn.textContent = State.manualMuteActive ? '🔇' : '🔊';
+      btn.style.background = State.manualMuteActive ? '#8b0000' : '#444';
+      btn.title = State.manualMuteActive ? 'Manual Mute Active (Click to Unmute)' : 'Manual Mute Toggle';
+      log(`Manual mute ${State.manualMuteActive?'ENABLED':'DISABLED'}`);
       scheduleImmediateCheck();
     });
     document.documentElement.appendChild(btn);
@@ -370,7 +432,7 @@
     const entry=`[${nowStr()}] ${text}`;
     window._captions_log.push(entry);
     if(window._captions_log.length>S.captionLogLimit)window._captions_log.splice(0,window._captions_log.length-S.captionLogLimit);
-    kvSet(CAPLOG_KEY,window._captions_log);
+    scheduleLogFlush();
   }
   function pushEventLog(kind,p={}){
     const t=new Date(),pad=n=>String(n).padStart(2,'0');
@@ -388,7 +450,7 @@
     ].filter(Boolean).join(' | ');
     window._captions_log.push(line);
     if(window._captions_log.length>S.captionLogLimit)window._captions_log.splice(0,window._captions_log.length-S.captionLogLimit);
-    kvSet(CAPLOG_KEY,window._captions_log);
+    scheduleLogFlush();
   }
   function downloadCaptionsNow(){
     const pad=n=>String(n).padStart(2,'0'),d=new Date();
@@ -409,10 +471,10 @@
 
   // Non-text ad signal with consecutive gates
   function nonTextAdSignal({captionsExist,captionsBottomed,noCcMs}){
-    if(!captionsExist && noCcMs>S.muteOnNoCCDelayMs){ noCcConsec++; } else { noCcConsec=0; }
-    if(captionsBottomed){ bottomConsec++; } else { bottomConsec=0; }
-    if(noCcConsec>=S.noCcHitsToMute && (bottomConsec>=1 || noCcConsec>=S.noCcHitsToMute+1)){
-      return {verdict:'AD_SIGNAL_SCORE',matched:`noCCx${noCcConsec}${bottomConsec?`+bottomx${bottomConsec}`:''}`};
+    if(!captionsExist && noCcMs>S.muteOnNoCCDelayMs){ State.noCcConsec++; } else { State.noCcConsec=0; }
+    if(captionsBottomed){ State.bottomConsec++; } else { State.bottomConsec=0; }
+    if(State.noCcConsec>=S.noCcHitsToMute && (State.bottomConsec>=1 || State.noCcConsec>=S.noCcHitsToMute+1)){
+      return {verdict:Verdict.AD_SIGNAL_SCORE,matched:`noCCx${State.noCcConsec}${State.bottomConsec?`+bottomx${State.bottomConsec}`:''}`};
     }
     return null;
   }
@@ -422,14 +484,14 @@
 
     // Instant allow (clear lock + unmute)
     const allowHit=containsAny(text,ALLOW_PHRASES);
-    if(allowHit) return {verdict:'PROGRAM_ALLOW',matched:allowHit};
+    if(allowHit) return {verdict:Verdict.PROGRAM_ALLOW,matched:allowHit};
 
     // Explicit break cues
     const breakHit=containsAny(text,BREAK_PHRASES);
-    if(breakHit) return {verdict:'AD_BREAK',matched:breakHit};
+    if(breakHit) return {verdict:Verdict.AD_BREAK,matched:breakHit};
 
     // Hard phrases (includes Medicare/benefits)
-    for(const p of HARD_AD_PHRASES){ if(text.includes(p)) return {verdict:'AD_HARD',matched:p}; }
+    for(const p of HARD_AD_PHRASES){ if(text.includes(p)) return {verdict:Verdict.AD_HARD,matched:p}; }
 
     // Brand + context + CTA/OFFER
     const brandHit=containsAny(text,BRAND_TERMS);
@@ -438,7 +500,7 @@
       if(ctxHit){
         const ctaHit = containsAny(text,CTA_TERMS) || containsAny(text,OFFER_TERMS) ||
                        (DOLLAR_RE.test(text)?'$':null) || (PER_RE.test(text)?'per':null);
-        if(ctaHit) return {verdict:'AD_BRAND_WITH_CONTEXT',matched:`${brandHit}+${ctxHit}+${ctaHit}`};
+        if(ctaHit) return {verdict:Verdict.AD_BRAND_WITH_CONTEXT,matched:`${brandHit}+${ctxHit}+${ctaHit}`};
       }
     }
 
@@ -447,160 +509,157 @@
     if(nonText) return nonText;
 
     // Program anchor?
-    if(isProgramAnchor(text)) return {verdict:'PROGRAM_ANCHOR',matched:null};
+    if(isProgramAnchor(text)) return {verdict:Verdict.PROGRAM_ANCHOR,matched:null};
 
-    return {verdict:'PROGRAM',matched:null};
+    return {verdict:Verdict.PROGRAM,matched:null};
   }
 
   /* ---------- MUTE/UNMUTE ---------- */
   function setMuted(video,shouldMute,info){
     if(!video)return;
 
-    // Manual mute override
-    if(manualMuteActive){
+    if(State.manualMuteActive){
       shouldMute = true;
-    } else if(!enabled){
+    } else if(!State.enabled){
       shouldMute=false;
     }
 
-    const changed=(lastMuteState!==shouldMute);
+    const changed=(State.lastMuteState!==shouldMute);
 
     if(S.useTrueMute){ if(video.muted!==shouldMute) video.muted=shouldMute; }
     else { video.volume = shouldMute ? 0.01 : Math.max(video.volume||1.0,0.01); }
 
     if(changed){
-      const lockMsLeft=Math.max(0,adLockUntil-Date.now());
+      const lockMsLeft=Math.max(0,State.adLockUntil-Date.now());
       pushEventLog(shouldMute?'MUTED':'UNMUTED', {
         reason:info.reason,match:info.match,ccSnippet:info.ccSnippet,url:location.href,
-        noCcMs:info.noCcMs,lock:lockMsLeft,pv:programVotes,quorum:programQuorumCount
+        noCcMs:info.noCcMs,lock:lockMsLeft,pv:State.programVotes,quorum:State.programQuorumCount
       });
       if(S.hudAutoOnMute) scheduleHudVisibility(shouldMute);
       else if(S.showHUD) hudFadeTo(true);
     }
-    lastMuteState=shouldMute;
+    State.lastMuteState=shouldMute;
 
-    const statusPrefix = manualMuteActive ? '[MANUAL MUTE] ' : (enabled?'':'[PAUSED] ');
+    const statusPrefix = State.manualMuteActive ? '[MANUAL MUTE] ' : (State.enabled?'':'[PAUSED] ');
     // Truncate CC snippet for HUD display stability (max 60 chars)
-    const hudCcSnippet = info.ccSnippet ? (info.ccSnippet.length>60 ? info.ccSnippet.slice(0,57)+'…' : info.ccSnippet) : '';
+    const hudCcSnippet = truncate(info.ccSnippet, 60);
     updateHUDText(
       statusPrefix+`${shouldMute?'MUTED':'UNMUTED'}\n`+
       `Reason: ${info.reason}\n`+
-      (info.match?`Match: "${info.match.length>30?info.match.slice(0,27)+'…':info.match}"\n`:'' )+
+      (info.match?`Match: "${truncate(info.match, 30)}"\n`:'' )+
       (hudCcSnippet?`CC: "${hudCcSnippet}"`:'' ),
-      info.confidence || currentConfidence
+      info.confidence || State.currentConfidence
     );
   }
 
   /* ---------- DOM / LOOP ---------- */
+  let _cachedVideo = null, _cachedCaptionWindow = null, _cacheValidUntil = 0;
   function detectNodes(){
-    const video=document.querySelector('video.html5-main-video')||document.querySelector('video');
-    const captionSegment=document.querySelector('span.ytp-caption-segment')||document.querySelector('.ytp-caption-segment');
-    const captionWindow=document.querySelector('div.caption-window')||document.querySelector('.ytp-caption-window-container')||document.querySelector('.ytp-caption-window');
-    return {video,captionSegment,captionWindow};
+    const now = Date.now();
+    if (now < _cacheValidUntil && _cachedVideo?.isConnected && _cachedCaptionWindow?.isConnected) {
+      return { video: _cachedVideo, captionWindow: _cachedCaptionWindow };
+    }
+    const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
+    const captionWindow = document.querySelector('div.caption-window') ||
+      document.querySelector('.ytp-caption-window-container') || document.querySelector('.ytp-caption-window');
+    _cachedVideo = video;
+    _cachedCaptionWindow = captionWindow;
+    _cacheValidUntil = now + 2000;
+    return { video, captionWindow };
   }
   function scheduleImmediateCheck(){
     if(!S.fastRecheckRAF) return tick();
-    if(rafScheduled) return; rafScheduled=true; requestAnimationFrame(()=>{rafScheduled=false;tick();});
+    if(State.rafScheduled) return; State.rafScheduled=true; requestAnimationFrame(()=>{State.rafScheduled=false;tick();});
   }
 
   function evaluate(video,ccText,captionsExist,captionsBottomed){
     const t=Date.now();
-    if(captionsExist) lastCcSeenMs=t;
+    if(captionsExist) State.lastCcSeenMs=t;
 
-    const noCcMs=t-lastCcSeenMs;
+    const noCcMs=t-State.lastCcSeenMs;
     const res=detectAdSignals(ccText,{captionsExist,captionsBottomed,noCcMs});
 
-    // Calculate confidence
-    currentConfidence = calculateConfidence(res.verdict, res.matched, ccText, {captionsExist,captionsBottomed,noCcMs});
+    State.currentConfidence = calculateConfidence(res.verdict, res.matched, ccText, {captionsExist,captionsBottomed,noCcMs});
 
     let shouldMute=false;
     let reason='PROGRAM_DETECTED';
     let match=res.matched;
 
-    // Manual override: force UNMUTE unless hard ad/brand+context
-    const manualActive = t < manualOverrideUntil;
-    const hardAd = (res.verdict==='AD_HARD'||res.verdict==='AD_BRAND_WITH_CONTEXT');
+    const manualActive = t < State.manualOverrideUntil;
+    const hardAd = (res.verdict===Verdict.AD_HARD||res.verdict===Verdict.AD_BRAND_WITH_CONTEXT);
     if(manualActive && !hardAd){
-      setMuted(video,false,{reason:'MANUAL_OVERRIDE_ACTIVE',match,ccSnippet:ccText?ccText.slice(0,140)+(ccText.length>140?'…':''):'',noCcMs,confidence:currentConfidence});
+      setMuted(video,false,{reason:'MANUAL_OVERRIDE_ACTIVE',match,ccSnippet:truncate(ccText),noCcMs,confidence:State.currentConfidence});
       return;
     }
 
-    // Check confidence threshold for muting decisions
-    const meetsThreshold = currentConfidence >= S.confidenceThreshold;
+    const meetsThreshold = State.currentConfidence >= S.confidenceThreshold;
 
-    // Enter/extend ad lock for ad-like verdicts (only if confidence meets threshold)
-    if(meetsThreshold && (res.verdict==='AD_BREAK'||res.verdict==='AD_HARD'||res.verdict==='AD_BRAND_WITH_CONTEXT'||res.verdict==='AD_SIGNAL_SCORE')){
-      adLockUntil=Math.max(adLockUntil,t+S.minAdLockMs);
-      programVotes=0; programQuorumCount=0; lastProgramGoodMs=0;
+    if(meetsThreshold && isAdVerdict(res.verdict)){
+      State.adLockUntil=Math.max(State.adLockUntil,t+S.minAdLockMs);
+      State.programVotes=0; State.programQuorumCount=0; State.lastProgramGoodMs=0;
     }
 
-    const lockActive=t<adLockUntil;
+    const lockActive=t<State.adLockUntil;
 
-    // Instant allow (clear lock + immediate unmute)
-    if(res.verdict==='PROGRAM_ALLOW'){
-      adLockUntil=0; programVotes=S.programVotesNeeded; programQuorumCount=S.programQuorumLines;
-      setMuted(video,false,{reason:'PROGRAM_ALLOW_INSTANT',match,ccSnippet:ccText?ccText.slice(0,140)+(ccText.length>140?'…':''):'',noCcMs,confidence:currentConfidence});
+    if(res.verdict===Verdict.PROGRAM_ALLOW){
+      State.adLockUntil=0; State.programVotes=S.programVotesNeeded; State.programQuorumCount=S.programQuorumLines;
+      setMuted(video,false,{reason:'PROGRAM_ALLOW_INSTANT',match,ccSnippet:truncate(ccText),noCcMs,confidence:State.currentConfidence});
       return;
     }
 
-    // Count program quorum (only on clean program-y lines)
-    const programish = (res.verdict==='PROGRAM'||res.verdict==='PROGRAM_ANCHOR');
+    const programish = isProgramVerdict(res.verdict);
     if(programish && captionsExist && !captionsBottomed){
-      programVotes=Math.min(S.programVotesNeeded, programVotes+1);
-      programQuorumCount = Math.min(S.programQuorumLines, programQuorumCount + (res.verdict==='PROGRAM_ANCHOR'?2:1));
-      if(lastProgramGoodMs===0) lastProgramGoodMs=t;
+      State.programVotes=Math.min(S.programVotesNeeded, State.programVotes+1);
+      State.programQuorumCount = Math.min(S.programQuorumLines, State.programQuorumCount + (res.verdict===Verdict.PROGRAM_ANCHOR?2:1));
+      if(State.lastProgramGoodMs===0) State.lastProgramGoodMs=t;
     } else if(!captionsExist || captionsBottomed || !programish){
-      // reset quorum if we get ad-ish or lose captions
-      if(res.verdict!=='PROGRAM' && res.verdict!=='PROGRAM_ANCHOR') programQuorumCount=0;
-      if(!captionsExist) lastProgramGoodMs=0;
-      programVotes = (res.verdict==='PROGRAM'||res.verdict==='PROGRAM_ANCHOR')?programVotes:0;
+      if(!isProgramVerdict(res.verdict)) State.programQuorumCount=0;
+      if(!captionsExist) State.lastProgramGoodMs=0;
+      State.programVotes = isProgramVerdict(res.verdict)?State.programVotes:0;
     }
 
     if(lockActive && meetsThreshold){
       shouldMute=true; reason='AD_LOCK';
     }else if(lockActive && !meetsThreshold){
-      // In ad lock but confidence dropped below threshold - hold state but indicate
-      shouldMute=(lastMuteState===true);
+      shouldMute=(State.lastMuteState===true);
       reason='AD_LOCK_BELOW_THRESHOLD';
     }else{
-      if(meetsThreshold && (res.verdict==='AD_BREAK'||res.verdict==='AD_HARD'||res.verdict==='AD_BRAND_WITH_CONTEXT'||res.verdict==='AD_SIGNAL_SCORE')){
-        shouldMute=true; reason=res.verdict; lastProgramGoodMs=0; programQuorumCount=0;
+      if(meetsThreshold && isAdVerdict(res.verdict)){
+        shouldMute=true; reason=res.verdict; State.lastProgramGoodMs=0; State.programQuorumCount=0;
       }else if(captionsExist && !captionsBottomed){
-        const votesOK = programVotes>=S.programVotesNeeded;
-        const quorumOK= programQuorumCount>=S.programQuorumLines;
-        const timeOK  = lastProgramGoodMs && ((t-lastProgramGoodMs)>=S.unmuteDebounceMs);
-        if( (votesOK && quorumOK && timeOK) || res.verdict==='PROGRAM_ANCHOR'){
-          shouldMute=false; reason=(res.verdict==='PROGRAM_ANCHOR')?'PROGRAM_ANCHOR_OK':'PROGRAM_CONFIRMED';
+        const votesOK = State.programVotes>=S.programVotesNeeded;
+        const quorumOK= State.programQuorumCount>=S.programQuorumLines;
+        const timeOK  = State.lastProgramGoodMs && ((t-State.lastProgramGoodMs)>=S.unmuteDebounceMs);
+        if( (votesOK && quorumOK && timeOK) || res.verdict===Verdict.PROGRAM_ANCHOR){
+          shouldMute=false; reason=(res.verdict===Verdict.PROGRAM_ANCHOR)?'PROGRAM_ANCHOR_OK':'PROGRAM_CONFIRMED';
         }else{
-          shouldMute=(lastMuteState===true);
+          shouldMute=(State.lastMuteState===true);
           reason = !votesOK ? 'PROGRAM_VOTING' : (!quorumOK ? 'PROGRAM_QUORUM' : 'PROGRAM_DEBOUNCE');
         }
       }else{
-        // hold mute briefly when CC vanishes
-        shouldMute=(lastMuteState===true)&&(noCcMs<S.muteOnNoCCDelayMs);
+        shouldMute=(State.lastMuteState===true)&&(noCcMs<S.muteOnNoCCDelayMs);
         if(shouldMute)reason='HOLD_PREV_STATE';
       }
     }
 
     setMuted(video,shouldMute,{
-      reason,match,ccSnippet:ccText?ccText.slice(0,140)+(ccText.length>140?'…':''):'',noCcMs,confidence:currentConfidence
+      reason,match,ccSnippet:truncate(ccText),noCcMs,confidence:State.currentConfidence
     });
   }
 
   function tick(){
-    const {video,captionSegment,captionWindow}=detectNodes();
-    if(!video){ if(videoRef)log('Video disappeared; waiting…'); videoRef=null; updateHUDText('Waiting for player…',0); return; }
-    if(!videoRef){
-      videoRef=video; log('Player found. Ready.');
-      lastCcSeenMs=Date.now(); lastProgramGoodMs=0; adLockUntil=0; programVotes=0; manualOverrideUntil=0;
-      noCcConsec=0; bottomConsec=0; programQuorumCount=0; lastCaptionVisibility=null;
+    const {video,captionWindow}=detectNodes();
+    if(!video){ if(State.videoRef)log('Video disappeared; waiting…'); State.videoRef=null; updateHUDText('Waiting for player…',0); return; }
+    if(!State.videoRef){
+      State.videoRef=video; log('Player found. Ready.');
+      State.reset(false);
     }
 
     let ccText='',captionsExist=false,captionsBottomed=false;
     if(captionWindow){
       // Hide or show captions based on setting - only update if changed to prevent flickering
-      if(S.hideCaptions!==lastCaptionVisibility){
-        lastCaptionVisibility=S.hideCaptions;
+      if(S.hideCaptions!==State.lastCaptionVisibility){
+        State.lastCaptionVisibility=S.hideCaptions;
         if(S.hideCaptions){
           // Use setAttribute for more forceful style override
           captionWindow.setAttribute('style',(captionWindow.getAttribute('style')||'')+';opacity:0!important;visibility:hidden!important;pointer-events:none!important');
@@ -618,15 +677,16 @@
       captionsBottomed=!!(b && b!=='auto' && b!=='');
     }
 
-    if(S.debugVerboseCC && captionSegment?.textContent){
-      const seg=captionSegment.textContent;
-      if(seg && seg!==lastCaptionLine){ lastCaptionLine=seg; console.log('[YTTV-Mute] CC:',seg); }
+    if(S.debugVerboseCC){
+      const captionSegment=document.querySelector('span.ytp-caption-segment')||document.querySelector('.ytp-caption-segment');
+      const seg=captionSegment?.textContent;
+      if(seg && seg!==State.lastCaptionLine){ State.lastCaptionLine=seg; console.log('[YTTV-Mute] CC:',seg); }
     }
-    if(ccText && ccText!==lastCaptionLine){ lastCaptionLine=ccText; pushCaption(ccText); }
+    if(ccText && ccText!==State.lastCaptionLine){ State.lastCaptionLine=ccText; pushCaption(ccText); }
 
     if(S.autoDownloadEveryMin>0){
-      const since=(Date.now()-lastAutoDlMs)/60000;
-      if(since>=S.autoDownloadEveryMin){ lastAutoDlMs=Date.now(); downloadCaptionsNow(); }
+      const since=(Date.now()-State.lastAutoDlMs)/60000;
+      if(since>=S.autoDownloadEveryMin){ State.lastAutoDlMs=Date.now(); downloadCaptionsNow(); }
     }
 
     evaluate(video,ccText,captionsExist,captionsBottomed);
@@ -657,9 +717,7 @@
     NS.routeObserver=new MutationObserver(()=>{
       if(NS._lastUrl!==location.href){
         NS._lastUrl=location.href; log('Route change →',NS._lastUrl);
-        lastMuteState=null; lastCaptionLine=''; videoRef=null;
-        lastCcSeenMs=Date.now(); lastProgramGoodMs=0; adLockUntil=0; programVotes=0; manualOverrideUntil=0;
-        noCcConsec=0; bottomConsec=0; programQuorumCount=0; lastCaptionVisibility=null;
+        State.reset(true);
         if(NS.hudTimer){clearTimeout(NS.hudTimer);NS.hudTimer=null;}
         if(NS.hudAnimTimer){clearTimeout(NS.hudAnimTimer);NS.hudAnimTimer=null;}
         startLoop();
@@ -701,28 +759,26 @@
   function flagIncorrectState(){
     const {captionWindow,video}=detectNodes();
     const cc=(captionWindow?.textContent||'').trim();
-    const currentMuted=lastMuteState===true;
+    const currentMuted=State.lastMuteState===true;
 
     pushEventLog('FLAG_INCORRECT_STATE',{
       reason:currentMuted?'was_muted_toggling_unmute':'was_unmuted_toggling_mute',
-      ccSnippet:cc?cc.slice(0,200)+(cc.length>200?'…':''):'',
+      ccSnippet:truncate(cc, 200),
       url:location.href,
-      noCcMs:Date.now()-lastCcSeenMs,
-      lock:Math.max(0,adLockUntil-Date.now()),
-      pv:programVotes,
-      quorum:programQuorumCount
+      noCcMs:Date.now()-State.lastCcSeenMs,
+      lock:Math.max(0,State.adLockUntil-Date.now()),
+      pv:State.programVotes,
+      quorum:State.programQuorumCount
     });
 
     if(video){
       if(currentMuted){
-        // Was muted, toggle to unmute
-        adLockUntil=0;
-        programQuorumCount=S.programQuorumLines;
-        manualOverrideUntil=Date.now()+S.manualOverrideMs;
-        setMuted(video,false,{reason:'FLAG_INCORRECT_STATE_UNMUTE',match:null,ccSnippet:cc.slice(0,140),noCcMs:Date.now()-lastCcSeenMs});
+        State.adLockUntil=0;
+        State.programQuorumCount=S.programQuorumLines;
+        State.manualOverrideUntil=Date.now()+S.manualOverrideMs;
+        setMuted(video,false,{reason:'FLAG_INCORRECT_STATE_UNMUTE',match:null,ccSnippet:truncate(cc),noCcMs:Date.now()-State.lastCcSeenMs});
       }else{
-        // Was unmuted, toggle to mute
-        setMuted(video,true,{reason:'FLAG_INCORRECT_STATE_MUTE',match:null,ccSnippet:cc.slice(0,140),noCcMs:Date.now()-lastCcSeenMs});
+        setMuted(video,true,{reason:'FLAG_INCORRECT_STATE_MUTE',match:null,ccSnippet:truncate(cc),noCcMs:Date.now()-State.lastCcSeenMs});
       }
     }
   }
@@ -889,7 +945,7 @@
               • <b>Ctrl+M</b> - Toggle mute/unmute<br>
               • <b>Ctrl+D</b> - Download captions log<br>
               • <b>Ctrl+Shift+S</b> - Open/close settings<br>
-              • <b>Ctrl+F</b> - Flag incorrect state
+              • <b>Ctrl+Shift+F</b> - Flag incorrect state
             </div>
           </div>
         </div>
@@ -1010,10 +1066,10 @@
 
   /* ---------- HOTKEYS ---------- */
   window.addEventListener('keydown',(e)=>{
-    if(e.ctrlKey && (e.key==='m'||e.key==='M')){enabled=!enabled;log(`Toggled → ${enabled?'ENABLED':'PAUSED'}`);e.preventDefault();}
+    if(e.ctrlKey && (e.key==='m'||e.key==='M')){State.enabled=!State.enabled;log(`Toggled → ${State.enabled?'ENABLED':'PAUSED'}`);e.preventDefault();}
     if(e.ctrlKey && (e.key==='d'||e.key==='D')){downloadCaptionsNow();e.preventDefault();}
     if(e.ctrlKey && e.shiftKey && (e.key==='s'||e.key==='S')){togglePanel();e.preventDefault();}
-    if(e.ctrlKey && (e.key==='f'||e.key==='F')){flagIncorrectState();e.preventDefault();}
+    if(e.ctrlKey && e.shiftKey && (e.key==='f'||e.key==='F')){flagIncorrectState();e.preventDefault();}
   },true);
 
   /* ---------- BOOT ---------- */
