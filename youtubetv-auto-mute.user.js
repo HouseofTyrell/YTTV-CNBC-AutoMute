@@ -989,272 +989,200 @@
 
   /* ---------- SETTINGS PANEL ---------- */
   function clampInt(v,min,max,fb){const n=Math.round(parseInt(v,10));return Number.isNaN(n)?fb:Math.min(max,Math.max(min,n));}
+
+  const SETTING_FIELDS = [
+    // General tab
+    { id: 'useTrueMute', tab: 'general', type: 'checkbox', label: 'True mute (vs low volume)' },
+    { id: 'debug', tab: 'general', type: 'checkbox', label: 'Console debug logging' },
+    { id: 'debugVerboseCC', tab: 'general', type: 'checkbox', label: 'Verbose CC debug' },
+    { id: 'llmReviewEnabled', tab: 'general', type: 'checkbox', label: 'Enable LLM Review', section: 'Review Features' },
+    { id: 'showFrequentWords', tab: 'general', type: 'checkbox', label: 'Show Frequent Words' },
+    { id: 'hideCaptions', tab: 'general', type: 'checkbox', label: 'Hide captions from view', section: 'Caption Display' },
+    // HUD tab
+    { id: 'showHUD', tab: 'hud', type: 'checkbox', label: 'Show HUD always' },
+    { id: 'hudAutoOnMute', tab: 'hud', type: 'checkbox', label: 'Auto HUD on mute' },
+    { id: 'showConfidenceMeter', tab: 'hud', type: 'checkbox', label: 'Show confidence meter', section: 'Confidence Meter' },
+    { id: 'showHudSlider', tab: 'hud', type: 'checkbox', label: 'Show threshold slider on HUD' },
+    { id: 'confidenceMeterStyle', tab: 'hud', type: 'select', label: 'Meter style', options: [['bar','Bar'],['numeric','Numeric'],['both','Both']] },
+    { id: 'confidenceThreshold', tab: 'hud', type: 'range', min: 0, max: 100, label: 'Mute confidence threshold' },
+    { id: 'hudAutoDelayMs', tab: 'hud', type: 'number', min: 0, max: 60000, label: 'Auto delay (ms)', section: 'Animation' },
+    { id: 'hudFadeMs', tab: 'hud', type: 'number', min: 0, max: 2000, label: 'Fade (ms)' },
+    { id: 'hudSlidePx', tab: 'hud', type: 'number', min: 0, max: 50, label: 'Slide (px)' },
+    // Timing tab
+    { id: 'intervalMs', tab: 'timing', type: 'number', min: 50, max: 2000, label: 'Poll interval (ms)' },
+    { id: 'muteOnNoCCDelayMs', tab: 'timing', type: 'number', min: 0, max: 5000, label: 'Mute on CC loss (ms)' },
+    { id: 'noCcHitsToMute', tab: 'timing', type: 'number', min: 1, max: 6, label: 'No-CC hits to mute' },
+    { id: 'unmuteDebounceMs', tab: 'timing', type: 'number', min: 0, max: 5000, label: 'Unmute debounce (ms)' },
+    { id: 'minAdLockMs', tab: 'timing', type: 'number', min: 0, max: 120000, label: 'Ad lock (ms)', section: 'Ad Lock' },
+    { id: 'programVotesNeeded', tab: 'timing', type: 'number', min: 1, max: 6, label: 'Program votes needed' },
+    { id: 'programQuorumLines', tab: 'timing', type: 'number', min: 1, max: 10, label: 'Quorum lines' },
+    { id: 'manualOverrideMs', tab: 'timing', type: 'number', min: 0, max: 60000, label: 'Manual override (ms)' },
+    // Phrases tab
+    { id: 'hardPhrases', tab: 'phrases', type: 'textarea', rows: 7, label: 'Hard Ad Phrases' },
+    { id: 'brandTerms', tab: 'phrases', type: 'textarea', rows: 6, label: 'Brand Terms' },
+    { id: 'adContext', tab: 'phrases', type: 'textarea', rows: 6, label: 'Ad Context' },
+    { id: 'ctaTerms', tab: 'phrases', type: 'textarea', rows: 5, label: 'CTA Terms' },
+    { id: 'offerTerms', tab: 'phrases', type: 'textarea', rows: 5, label: 'Offer Terms' },
+    { id: 'allowPhrases', tab: 'phrases', type: 'textarea', rows: 6, label: 'Allow Phrases (program cues)' },
+    { id: 'breakPhrases', tab: 'phrases', type: 'textarea', rows: 5, label: 'Break Phrases' },
+    { id: 'anchorNames', tab: 'phrases', type: 'textarea', rows: 5, label: 'CNBC Anchor Names' },
+    { id: 'segmentNames', tab: 'phrases', type: 'textarea', rows: 5, label: 'Segment Names' },
+    { id: 'returnFromBreakPhrases', tab: 'phrases', type: 'textarea', rows: 5, label: 'Return-from-Break Phrases' },
+  ];
+
+  function populatePanel(panel, settings) {
+    for (const f of SETTING_FIELDS) {
+      const el = panel.querySelector('#' + f.id);
+      if (!el) continue;
+      const val = settings[f.id];
+      if (f.type === 'checkbox') el.checked = !!val;
+      else if (f.type === 'textarea') el.value = Array.isArray(val) ? val.join('\n') : (val || '');
+      else el.value = val;
+    }
+    const thrVal = panel.querySelector('#confidenceThresholdValue');
+    if (thrVal) thrVal.textContent = settings.confidenceThreshold + '%';
+  }
+
+  function readPanel(panel) {
+    const out = {};
+    for (const f of SETTING_FIELDS) {
+      const el = panel.querySelector('#' + f.id);
+      if (!el) continue;
+      if (f.type === 'checkbox') out[f.id] = el.checked;
+      else if (f.type === 'number' || f.type === 'range') out[f.id] = clampInt(el.value, f.min, f.max, DEFAULTS[f.id]);
+      else if (f.type === 'textarea') {
+        const lines = el.value.split('\n').map(s => s.trim()).filter(Boolean);
+        out[f.id] = Array.isArray(DEFAULTS[f.id]) ? lines : el.value;
+      }
+      else out[f.id] = el.value;
+    }
+    return out;
+  }
+
   function buildPanel(){
     if(NS.panelEl)return NS.panelEl;
     const panel=document.createElement('div'); NS.panelEl=panel;
-    panel.style.cssText=[
-      'position:fixed','right:16px','top:16px','z-index:2147483647','width:560px','max-width:95vw','max-height:85vh',
-      'background:#111','color:#fff','border:1px solid #333','border-radius:10px','box-shadow:0 10px 30px rgba(0,0,0,.5)','font:13px/1.4 system-ui,sans-serif',
-      'display:flex','flex-direction:column'
-    ].join(';');
-    const btn='background:#1f6feb;border:none;color:#fff;padding:6px 10px;border-radius:7px;cursor:pointer';
-    const input='width:100%;box-sizing:border-box;background:#000;color:#fff;border:1px solid #333;border-radius:7px;padding:6px';
-    const tab='background:transparent;border:none;color:#888;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;font:13px system-ui,sans-serif';
-    const activeTab='color:#fff;border-bottom-color:#1f6feb';
-    panel.innerHTML=`
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;background:#111;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute — Settings</div>
-        <div style="margin-left:auto;display:flex;gap:8px;">
-          <button id="yttp-save" style="${btn}">Save & Apply</button>
-          <button id="yttp-close" style="${btn};background:#444">Close (Ctrl+Shift+S)</button>
-        </div>
+    panel.style.cssText='position:fixed;right:16px;top:16px;z-index:2147483647;width:560px;max-width:95vw;max-height:85vh;background:#111;color:#fff;border:1px solid #333;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.5);font:13px/1.4 system-ui,sans-serif;display:flex;flex-direction:column';
+    const btnS='background:#1f6feb;border:none;color:#fff;padding:6px 10px;border-radius:7px;cursor:pointer';
+    const inputS='width:100%;box-sizing:border-box;background:#000;color:#fff;border:1px solid #333;border-radius:7px;padding:6px';
+    const tabS='background:transparent;border:none;color:#888;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;font:13px system-ui,sans-serif';
+    const activeTabS='color:#fff;border-bottom-color:#1f6feb';
+    const tabNames = ['general','hud','timing','phrases','actions'];
+
+    // Build tab content from SETTING_FIELDS
+    const tabContent = {};
+    for (const tn of tabNames) tabContent[tn] = '';
+    let lastSection = {};
+    for (const f of SETTING_FIELDS) {
+      if (f.section && f.section !== lastSection[f.tab]) {
+        lastSection[f.tab] = f.section;
+        tabContent[f.tab] += `<div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;"><div style="font-weight:600;font-size:13px;">${f.section}</div>`;
+      }
+      if (f.type === 'checkbox') {
+        tabContent[f.tab] += `<label><input type="checkbox" id="${f.id}"> ${f.label}</label>`;
+      } else if (f.type === 'number') {
+        tabContent[f.tab] += `<label>${f.label} <input id="${f.id}" type="number" min="${f.min}" max="${f.max}" style="${inputS}"></label>`;
+      } else if (f.type === 'range') {
+        tabContent[f.tab] += `<label>${f.label}<div style="display:flex;align-items:center;gap:8px;"><input id="${f.id}" type="range" min="${f.min}" max="${f.max}" style="flex:1;height:20px;"><span id="${f.id}Value" style="min-width:40px;text-align:right;"></span></div></label>`;
+      } else if (f.type === 'select') {
+        const opts = f.options.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+        tabContent[f.tab] += `<label>${f.label} <select id="${f.id}" style="${inputS}">${opts}</select></label>`;
+      } else if (f.type === 'textarea') {
+        tabContent[f.tab] += `<div><div style="margin:6px 0 4px;font-weight:600;">${f.label} (one per line)</div><textarea id="${f.id}" rows="${f.rows}" style="${inputS};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea></div>`;
+      }
+    }
+
+    // Actions tab (static)
+    tabContent.actions = `
+      <div style="display:grid;gap:8px;">
+        <div style="font-weight:600;font-size:13px;">Caption Logging</div>
+        <label>Auto-download captions every N minutes (0=off) <input id="autoDownloadEveryMin" type="number" min="0" max="360" style="${inputS}"></label>
+        <label>Caption log limit (lines) <input id="captionLogLimit" type="number" min="200" max="50000" style="${inputS}"></label>
       </div>
-
-      <div style="display:flex;border-bottom:1px solid #333;background:#0d1117;">
-        <button class="yttp-tab" data-tab="general" style="${tab};${activeTab}">General</button>
-        <button class="yttp-tab" data-tab="hud" style="${tab}">HUD</button>
-        <button class="yttp-tab" data-tab="timing" style="${tab}">Timing</button>
-        <button class="yttp-tab" data-tab="phrases" style="${tab}">Phrases</button>
-        <button class="yttp-tab" data-tab="actions" style="${tab}">Actions</button>
+      <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+        <div style="font-weight:600;font-size:13px;">Quick Actions</div>
+        <button id="dl" style="${btnS}">Download Captions (Ctrl+D)</button>
+        <button id="clearlog" style="${btnS};background:#8b0000">Clear Caption Log</button>
       </div>
-
-      <div style="overflow:auto;flex:1;">
-        <!-- General Tab -->
-        <div class="yttp-tab-content" data-tab="general" style="padding:12px;display:grid;gap:12px;">
-          <div style="display:grid;gap:8px;">
-            <div style="font-weight:600;font-size:13px;">Basic Settings</div>
-            <label><input type="checkbox" id="useTrueMute"> True mute (vs low volume)</label>
-            <label><input type="checkbox" id="debug"> Console debug logging</label>
-            <label><input type="checkbox" id="debugVerboseCC"> Verbose CC debug</label>
-          </div>
-
-          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
-            <div style="font-weight:600;font-size:13px;">Review Features</div>
-            <label><input type="checkbox" id="llmReviewEnabled"> Enable LLM Review</label>
-            <label><input type="checkbox" id="showFrequentWords"> Show Frequent Words</label>
-          </div>
-
-          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
-            <div style="font-weight:600;font-size:13px;">Caption Display</div>
-            <label><input type="checkbox" id="hideCaptions"> Hide captions from view (still processed for muting)</label>
-          </div>
-        </div>
-
-        <!-- HUD Tab -->
-        <div class="yttp-tab-content" data-tab="hud" style="padding:12px;display:none;gap:12px;">
-          <div style="display:grid;gap:8px;">
-            <div style="font-weight:600;font-size:13px;">HUD Visibility</div>
-            <label><input type="checkbox" id="showHUD"> Show HUD always</label>
-            <label><input type="checkbox" id="hudAutoOnMute"> Auto HUD on mute (hide on unmute)</label>
-          </div>
-
-          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
-            <div style="font-weight:600;font-size:13px;">Confidence Meter</div>
-            <label><input type="checkbox" id="showConfidenceMeter"> Show confidence meter</label>
-            <label><input type="checkbox" id="showHudSlider"> Show threshold slider on HUD</label>
-            <label>Confidence meter style
-              <select id="confidenceMeterStyle" style="${input}">
-                <option value="bar">Bar only</option>
-                <option value="numeric">Numeric only</option>
-                <option value="both">Both bar and numeric</option>
-              </select>
-            </label>
-            <label>Mute confidence threshold (0–100%)
-              <div style="display:flex;align-items:center;gap:8px;">
-                <input id="confidenceThreshold" type="range" min="0" max="100" step="1" style="flex:1;height:20px;">
-                <span id="confidenceThresholdValue" style="min-width:40px;text-align:right;">70%</span>
-              </div>
-            </label>
-            <div style="font-size:11px;color:#888;">Only mute when ad confidence reaches or exceeds this threshold. Lower = more aggressive muting.</div>
-          </div>
-
-          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
-            <div style="font-weight:600;font-size:13px;">HUD Animation</div>
-            <label>HUD auto show/hide delay (ms) <input id="hudAutoDelayMs" type="number" min="0" max="60000" step="100" style="${input}"></label>
-            <label>HUD fade duration (ms) <input id="hudFadeMs" type="number" min="0" max="2000" step="10" style="${input}"></label>
-            <label>HUD slide distance (px) <input id="hudSlidePx" type="number" min="0" max="50" step="1" style="${input}"></label>
-          </div>
-        </div>
-
-        <!-- Timing Tab -->
-        <div class="yttp-tab-content" data-tab="timing" style="padding:12px;display:none;gap:12px;">
-          <div style="display:grid;gap:6px;">
-            <div style="font-weight:600;font-size:13px;">Detection Timing</div>
-            <label>Poll interval (ms) <input id="intervalMs" type="number" min="50" max="1000" step="10" style="${input}"></label>
-            <label>Fast mute when CC missing (ms) <input id="muteOnNoCCDelayMs" type="number" min="0" max="5000" step="10" style="${input}"></label>
-            <label>Consecutive no-CC hits to mute <input id="noCcHitsToMute" type="number" min="1" max="6" step="1" style="${input}"></label>
-            <label>Unmute debounce (ms) <input id="unmuteDebounceMs" type="number" min="0" max="5000" step="10" style="${input}"></label>
-          </div>
-
-          <div style="display:grid;gap:6px;border-top:1px solid #333;padding-top:8px;">
-            <div style="font-weight:600;font-size:13px;">Ad Lock & Program Detection</div>
-            <label>Ad-lock duration (ms) <input id="minAdLockMs" type="number" min="0" max="60000" step="100" style="${input}"></label>
-            <label>Program votes needed (1–4) <input id="programVotesNeeded" type="number" min="1" max="4" step="1" style="${input}"></label>
-            <label>Program quorum lines (1–8) <input id="programQuorumLines" type="number" min="1" max="8" step="1" style="${input}"></label>
-            <label>Manual override after flag (ms) <input id="manualOverrideMs" type="number" min="0" max="60000" step="100" style="${input}"></label>
-          </div>
-        </div>
-
-        <!-- Phrases Tab -->
-        <div class="yttp-tab-content" data-tab="phrases" style="padding:12px;display:none;gap:12px;">
-          <div><div style="margin:6px 0 4px;font-weight:600;">Hard Ad Phrases (one per line)</div>
-            <textarea id="hardPhrases" rows="7" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-          </div>
-          <div><div style="margin:6px 0 4px;font-weight:600;">Brand Terms (one per line)</div>
-            <textarea id="brandTerms" rows="6" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-          </div>
-          <div><div style="margin:6px 0 4px;font-weight:600;">Ad Context Phrases (one per line)</div>
-            <textarea id="adContext" rows="6" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-          </div>
-          <div><div style="margin:6px 0 4px;font-weight:600;">CTA Terms (one per line)</div>
-            <textarea id="ctaTerms" rows="5" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-          </div>
-          <div><div style="margin:6px 0 4px;font-weight:600;">Offer Terms (one per line)</div>
-            <textarea id="offerTerms" rows="5" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-          </div>
-          <div><div style="margin:6px 0 4px;font-weight:600;">Allow Phrases (program cues, one per line)</div>
-            <textarea id="allowPhrases" rows="6" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-          </div>
-          <div><div style="margin:6px 0 4px;font-weight:600;">Break Phrases (one per line)</div>
-            <textarea id="breakPhrases" rows="5" style="${input};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea>
-          </div>
-        </div>
-
-        <!-- Actions Tab -->
-        <div class="yttp-tab-content" data-tab="actions" style="padding:12px;display:none;gap:12px;">
-          <div style="display:grid;gap:8px;">
-            <div style="font-weight:600;font-size:13px;">Caption Logging</div>
-            <label>Auto-download captions every N minutes (0=off) <input id="autoDownloadEveryMin" type="number" min="0" max="360" step="1" style="${input}"></label>
-            <label>Caption log limit (lines) <input id="captionLogLimit" type="number" min="200" max="50000" step="100" style="${input}"></label>
-          </div>
-
-          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
-            <div style="font-weight:600;font-size:13px;">Quick Actions</div>
-            <button id="dl" style="${btn}">Download Captions (Ctrl+D)</button>
-            <button id="clearlog" style="${btn};background:#8b0000">Clear Caption Log</button>
-          </div>
-
-          <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
-            <div style="font-weight:600;font-size:13px;">Settings Management</div>
-            <button id="export" style="${btn}">Export Settings to File</button>
-            <label style="${btn};display:inline-block;position:relative;overflow:hidden;">
-              Import Settings from File<input id="import" type="file" accept="application/json" style="opacity:0;position:absolute;left:0;top:0;width:100%;height:100%;cursor:pointer;">
-            </label>
-            <button id="reset" style="${btn};background:#444">Reset All to Defaults</button>
-          </div>
-
-          <div style="border-top:1px solid #333;padding-top:8px;">
-            <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Keyboard Shortcuts</div>
-            <div style="font-size:12px;color:#bbb;line-height:1.6;">
-              • <b>Ctrl+M</b> - Toggle mute/unmute<br>
-              • <b>Ctrl+D</b> - Download captions log<br>
-              • <b>Ctrl+Shift+S</b> - Open/close settings<br>
-              • <b>Ctrl+Shift+F</b> - Flag incorrect state
-            </div>
-          </div>
+      <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
+        <div style="font-weight:600;font-size:13px;">Settings Management</div>
+        <button id="export" style="${btnS}">Export Settings to File</button>
+        <label style="${btnS};display:inline-block;position:relative;overflow:hidden;">Import Settings<input id="import" type="file" accept="application/json" style="opacity:0;position:absolute;left:0;top:0;width:100%;height:100%;cursor:pointer;"></label>
+        <button id="reset" style="${btnS};background:#444">Reset All to Defaults</button>
+      </div>
+      <div style="border-top:1px solid #333;padding-top:8px;">
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Keyboard Shortcuts</div>
+        <div style="font-size:12px;color:#bbb;line-height:1.6;">
+          <b>Ctrl+M</b> Toggle mute | <b>Ctrl+D</b> Download log | <b>Ctrl+Shift+S</b> Settings | <b>Ctrl+Shift+F</b> Flag incorrect
         </div>
       </div>`;
+
+    const tabBar = tabNames.map((tn,i) =>
+      `<button class="yttp-tab" data-tab="${tn}" style="${tabS}${i===0?';'+activeTabS:''}">${tn[0].toUpperCase()+tn.slice(1)}</button>`
+    ).join('');
+
+    const tabPanels = tabNames.map((tn,i) =>
+      `<div class="yttp-tab-content" data-tab="${tn}" style="padding:12px;display:${i===0?'grid':'none'};gap:12px;">${tabContent[tn]}</div>`
+    ).join('');
+
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.0 — Settings</div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <button id="yttp-save" style="${btnS}">Save & Apply</button>
+          <button id="yttp-close" style="${btnS};background:#444">Close</button>
+        </div>
+      </div>
+      <div style="display:flex;border-bottom:1px solid #333;background:#0d1117;">${tabBar}</div>
+      <div style="overflow:auto;flex:1;">${tabPanels}</div>`;
     document.documentElement.appendChild(panel);
 
-    // Tab switching logic
-    const tabs=panel.querySelectorAll('.yttp-tab');
-    const tabContents=panel.querySelectorAll('.yttp-tab-content');
-    tabs.forEach(tab=>{
-      tab.addEventListener('click',()=>{
-        const targetTab=tab.getAttribute('data-tab');
-        tabs.forEach(t=>t.style.cssText=t.getAttribute('data-tab')===targetTab?`${tab};${activeTab}`:`${tab}`);
-        tabContents.forEach(tc=>{tc.style.display=tc.getAttribute('data-tab')===targetTab?'grid':'none';});
+    // Tab switching
+    const tabs = panel.querySelectorAll('.yttp-tab');
+    const tabContents = panel.querySelectorAll('.yttp-tab-content');
+    tabs.forEach(tb => {
+      tb.addEventListener('click', () => {
+        const target = tb.getAttribute('data-tab');
+        tabs.forEach(t => { t.style.color = t.getAttribute('data-tab') === target ? '#fff' : '#888'; t.style.borderBottomColor = t.getAttribute('data-tab') === target ? '#1f6feb' : 'transparent'; });
+        tabContents.forEach(tc => { tc.style.display = tc.getAttribute('data-tab') === target ? 'grid' : 'none'; });
       });
     });
 
-    // populate
-    panel.querySelector('#useTrueMute').checked=S.useTrueMute;
-    panel.querySelector('#debug').checked=S.debug;
-    panel.querySelector('#debugVerboseCC').checked=S.debugVerboseCC;
-    panel.querySelector('#llmReviewEnabled').checked=S.llmReviewEnabled;
-    panel.querySelector('#showFrequentWords').checked=S.showFrequentWords;
-    panel.querySelector('#hideCaptions').checked=S.hideCaptions;
-    panel.querySelector('#showHUD').checked=S.showHUD;
-    panel.querySelector('#hudAutoOnMute').checked=S.hudAutoOnMute;
-    panel.querySelector('#showConfidenceMeter').checked=S.showConfidenceMeter;
-    panel.querySelector('#showHudSlider').checked=S.showHudSlider;
-    panel.querySelector('#confidenceMeterStyle').value=S.confidenceMeterStyle||'bar';
-    panel.querySelector('#confidenceThreshold').value=S.confidenceThreshold;
-    panel.querySelector('#confidenceThresholdValue').textContent=S.confidenceThreshold+'%';
-    panel.querySelector('#confidenceThreshold').addEventListener('input',(e)=>{
-      panel.querySelector('#confidenceThresholdValue').textContent=e.target.value+'%';
+    // Populate fields
+    populatePanel(panel, S);
+    panel.querySelector('#autoDownloadEveryMin').value = S.autoDownloadEveryMin;
+    panel.querySelector('#captionLogLimit').value = S.captionLogLimit;
+
+    // Range slider live update
+    const thrSlider = panel.querySelector('#confidenceThreshold');
+    if (thrSlider) thrSlider.addEventListener('input', (e) => {
+      const v = panel.querySelector('#confidenceThresholdValue');
+      if (v) v.textContent = e.target.value + '%';
     });
-    panel.querySelector('#hudAutoDelayMs').value=S.hudAutoDelayMs;
-    panel.querySelector('#hudFadeMs').value=S.hudFadeMs;
-    panel.querySelector('#hudSlidePx').value=S.hudSlidePx;
-    panel.querySelector('#intervalMs').value=S.intervalMs;
-    panel.querySelector('#muteOnNoCCDelayMs').value=S.muteOnNoCCDelayMs;
-    panel.querySelector('#noCcHitsToMute').value=S.noCcHitsToMute;
-    panel.querySelector('#unmuteDebounceMs').value=S.unmuteDebounceMs;
-    panel.querySelector('#minAdLockMs').value=S.minAdLockMs;
-    panel.querySelector('#programVotesNeeded').value=S.programVotesNeeded;
-    panel.querySelector('#programQuorumLines').value=S.programQuorumLines;
-    panel.querySelector('#manualOverrideMs').value=S.manualOverrideMs;
-    panel.querySelector('#autoDownloadEveryMin').value=S.autoDownloadEveryMin;
-    panel.querySelector('#captionLogLimit').value=S.captionLogLimit;
-    panel.querySelector('#hardPhrases').value=S.hardPhrases;
-    panel.querySelector('#brandTerms').value=S.brandTerms;
-    panel.querySelector('#adContext').value=S.adContext;
-    panel.querySelector('#ctaTerms').value=(Array.isArray(S.ctaTerms)?S.ctaTerms.join('\n'):S.ctaTerms||'');
-    panel.querySelector('#offerTerms').value=(Array.isArray(S.offerTerms)?S.offerTerms.join('\n'):S.offerTerms||'');
-    panel.querySelector('#allowPhrases').value=Array.isArray(S.allowPhrases)?S.allowPhrases.join('\n'):S.allowPhrases;
-    panel.querySelector('#breakPhrases').value=Array.isArray(S.breakPhrases)?S.breakPhrases.join('\n'):S.breakPhrases;
 
-    // actions
-    const close=()=>togglePanel();
-    panel.querySelector('#yttp-close').onclick=close;
-    panel.querySelector('#dl').onclick=downloadCaptionsNow;
-    panel.querySelector('#clearlog').onclick=()=>{window._captions_log=[];kvSet(CAPLOG_KEY,window._captions_log);alert('Caption log cleared.');};
-    panel.querySelector('#export').onclick=()=>{const data=JSON.stringify(S,null,2);
-      const url='data:application/json;charset=utf-8,'+encodeURIComponent(data);
-      const a=document.createElement('a');a.href=url;a.download='yttp_settings.json';a.click();};
-    panel.querySelector('#import').onchange=(e)=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();
-      r.onload=()=>{try{const parsed=JSON.parse(r.result);S={...DEFAULTS,...parsed};saveSettings(S);applySettings(true);alert('Settings imported and applied.');
-        NS.panelEl.remove();NS.panelEl=null;buildPanel();}catch{alert('Invalid settings file.');}};
-      r.readAsText(f);};
-    panel.querySelector('#reset').onclick=()=>{if(!confirm('Reset settings to defaults?'))return;S={...DEFAULTS};saveSettings(S);applySettings(true);NS.panelEl.remove();NS.panelEl=null;buildPanel();};
-    panel.querySelector('#yttp-save').onclick=()=>{
-      S.useTrueMute=panel.querySelector('#useTrueMute').checked;
-      S.debug=panel.querySelector('#debug').checked;
-      S.debugVerboseCC=panel.querySelector('#debugVerboseCC').checked;
-      S.llmReviewEnabled=panel.querySelector('#llmReviewEnabled').checked;
-      S.showFrequentWords=panel.querySelector('#showFrequentWords').checked;
-      S.hideCaptions=panel.querySelector('#hideCaptions').checked;
-      S.showHUD=panel.querySelector('#showHUD').checked;
-      S.hudAutoOnMute=panel.querySelector('#hudAutoOnMute').checked;
-      S.showConfidenceMeter=panel.querySelector('#showConfidenceMeter').checked;
-      S.showHudSlider=panel.querySelector('#showHudSlider').checked;
-      S.confidenceMeterStyle=panel.querySelector('#confidenceMeterStyle').value;
-      S.confidenceThreshold=clampInt(panel.querySelector('#confidenceThreshold').value,0,100,DEFAULTS.confidenceThreshold);
-      S.hudAutoDelayMs=clampInt(panel.querySelector('#hudAutoDelayMs').value,0,60000,DEFAULTS.hudAutoDelayMs);
-      S.hudFadeMs=clampInt(panel.querySelector('#hudFadeMs').value,0,2000,DEFAULTS.hudFadeMs);
-      S.hudSlidePx=clampInt(panel.querySelector('#hudSlidePx').value,0,50,DEFAULTS.hudSlidePx);
-      S.intervalMs=clampInt(panel.querySelector('#intervalMs').value,50,2000,DEFAULTS.intervalMs);
-      S.muteOnNoCCDelayMs=clampInt(panel.querySelector('#muteOnNoCCDelayMs').value,0,5000,DEFAULTS.muteOnNoCCDelayMs);
-      S.noCcHitsToMute=clampInt(panel.querySelector('#noCcHitsToMute').value,1,6,DEFAULTS.noCcHitsToMute);
-      S.unmuteDebounceMs=clampInt(panel.querySelector('#unmuteDebounceMs').value,0,5000,DEFAULTS.unmuteDebounceMs);
-      S.minAdLockMs=clampInt(panel.querySelector('#minAdLockMs').value,0,60000,DEFAULTS.minAdLockMs);
-      S.programVotesNeeded=clampInt(panel.querySelector('#programVotesNeeded').value,1,4,DEFAULTS.programVotesNeeded);
-      S.programQuorumLines=clampInt(panel.querySelector('#programQuorumLines').value,1,8,DEFAULTS.programQuorumLines);
-      S.manualOverrideMs=clampInt(panel.querySelector('#manualOverrideMs').value,0,60000,DEFAULTS.manualOverrideMs);
-      S.autoDownloadEveryMin=clampInt(panel.querySelector('#autoDownloadEveryMin').value,0,360,DEFAULTS.autoDownloadEveryMin);
-      S.captionLogLimit=clampInt(panel.querySelector('#captionLogLimit').value,200,50000,DEFAULTS.captionLogLimit);
-
-      S.hardPhrases=panel.querySelector('#hardPhrases').value;
-      S.brandTerms=panel.querySelector('#brandTerms').value;
-      S.adContext=panel.querySelector('#adContext').value;
-      S.ctaTerms=panel.querySelector('#ctaTerms').value.split('\n').map(s=>s.trim()).filter(Boolean);
-      S.offerTerms=panel.querySelector('#offerTerms').value.split('\n').map(s=>s.trim()).filter(Boolean);
-      S.allowPhrases=panel.querySelector('#allowPhrases').value.split('\n').map(s=>s.trim()).filter(Boolean);
-      S.breakPhrases=panel.querySelector('#breakPhrases').value.split('\n').map(s=>s.trim()).filter(Boolean);
-
+    // Action buttons
+    panel.querySelector('#yttp-close').onclick = () => togglePanel();
+    panel.querySelector('#dl').onclick = downloadCaptionsNow;
+    panel.querySelector('#clearlog').onclick = () => { window._captions_log = []; kvSet(CAPLOG_KEY, window._captions_log); alert('Caption log cleared.'); };
+    panel.querySelector('#export').onclick = () => {
+      const url = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(S, null, 2));
+      const a = document.createElement('a'); a.href = url; a.download = 'yttp_settings.json'; a.click();
+    };
+    panel.querySelector('#import').onchange = (e) => {
+      const f = e.target.files?.[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = () => { try { S = { ...DEFAULTS, ...JSON.parse(r.result) }; PhraseIndex.rebuild(S); saveSettings(S); applySettings(true); alert('Imported.'); NS.panelEl.remove(); NS.panelEl = null; buildPanel(); } catch { alert('Invalid file.'); } };
+      r.readAsText(f);
+    };
+    panel.querySelector('#reset').onclick = () => { if (!confirm('Reset to defaults?')) return; S = { ...DEFAULTS }; PhraseIndex.rebuild(S); saveSettings(S); applySettings(true); NS.panelEl.remove(); NS.panelEl = null; buildPanel(); };
+    panel.querySelector('#yttp-save').onclick = () => {
+      Object.assign(S, readPanel(panel));
+      S.autoDownloadEveryMin = clampInt(panel.querySelector('#autoDownloadEveryMin').value, 0, 360, DEFAULTS.autoDownloadEveryMin);
+      S.captionLogLimit = clampInt(panel.querySelector('#captionLogLimit').value, 200, 50000, DEFAULTS.captionLogLimit);
       PhraseIndex.rebuild(S);
-      saveSettings(S); applySettings(true); alert('Settings saved and applied.');
+      saveSettings(S);
+      applySettings(true);
+      alert('Settings saved and applied.');
     };
     return panel;
   }
