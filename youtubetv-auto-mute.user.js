@@ -29,9 +29,9 @@
     if(NS.hudTimer)clearTimeout(NS.hudTimer);
     if(NS.hudAnimTimer)clearTimeout(NS.hudAnimTimer);
   }catch{}
-  Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,routeObserver:null,
+  Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,
     hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
-    flagBtn:null,btnContainer:null,settingsBtn:null,muteBtn:null,_lastUrl:location.href,_hudBuilt:false});
+    flagBtn:null,btnContainer:null,settingsBtn:null,muteBtn:null,_lastUrl:location.href});
 
   /* ---------- STORAGE SHIMS ---------- */
   const hasGM_get = typeof GM_getValue==='function';
@@ -170,7 +170,9 @@
       "see details","member fdic","not fdic insured","policy","quote",
       "promo code","use code","discount code","limited supply","while supplies last",
       "satisfaction guaranteed","money-back guarantee","no obligation","risk-free",
-      "available at","sold at","find it at","order yours","order now","shop now"
+      "available at","sold at","find it at","order yours","order now","shop now",
+      "for more information","available now","now available","act now","don't wait",
+      "official sponsor","proud sponsor","proud partner","as seen on"
     ].join('\n'),
 
     ctaTerms: ["apply","sign up","join now","call","visit","learn more","enroll","enrollment","get started","download","claim","see details","speak to an agent","licensed agent"],
@@ -208,7 +210,8 @@
       "stay with us","more after the break","right after this break",
       "the exchange is back after this",
       "don't go anywhere","stick around","after the break","when we come back",
-      "we'll have more after this"
+      "we'll have more after this","quick break","take a quick break","much more ahead",
+      "we'll be back in two minutes","we'll be back in just a moment"
     ],
 
     // CNBC anchor names — program signal
@@ -243,22 +246,6 @@
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
 
-  const toLines=(t)=>(t||'').split('\n').map(s=>s.trim()).filter(Boolean);
-
-  /* ---------- VERDICT ENUM ---------- */
-  const Verdict = Object.freeze({
-    AD_HARD: 'AD_HARD',
-    AD_BREAK: 'AD_BREAK',
-    AD_BRAND_WITH_CONTEXT: 'AD_BRAND_WITH_CONTEXT',
-    AD_SIGNAL_SCORE: 'AD_SIGNAL_SCORE',
-    PROGRAM_ALLOW: 'PROGRAM_ALLOW',
-    PROGRAM_ANCHOR: 'PROGRAM_ANCHOR',
-    PROGRAM: 'PROGRAM',
-  });
-  const isAdVerdict = (v) => v === Verdict.AD_HARD || v === Verdict.AD_BREAK ||
-    v === Verdict.AD_BRAND_WITH_CONTEXT || v === Verdict.AD_SIGNAL_SCORE;
-  const isProgramVerdict = (v) => v === Verdict.PROGRAM || v === Verdict.PROGRAM_ANCHOR;
-
   /* ---------- WEIGHT CONSTANTS ---------- */
   const WEIGHT = Object.freeze({
     BASE: 50,
@@ -280,7 +267,6 @@
     PROGRAM_ALLOW: -45,
     RETURN_FROM_BREAK: -42,
     ANCHOR_NAME: -28,
-    PROGRAM_ANCHOR: -25,
     GUEST_INTRO: -22,
     SEGMENT_NAME: -18,
     CONVERSATIONAL: -12,
@@ -291,7 +277,7 @@
 
   /* ---------- STATE ---------- */
   const log=(...a)=>{if(S.debug)console.log('[YTTV-Mute]',...a);};
-  const nowStr=()=>new Date().toLocaleTimeString();
+  const nowStr=()=>{const t=new Date(),p=n=>String(n).padStart(2,'0');return `${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())}`;};
   const CAPLOG_KEY='captions_log';
   const _loadedLog = kvGet(CAPLOG_KEY, []);
   window._captions_log = Array.isArray(_loadedLog) ? _loadedLog : [];
@@ -385,17 +371,14 @@
       return m ? m[1] : null;
     },
 
-    matchAll(category, text) {
-      const re = this._compiled[category];
-      if (!re) return [];
-      const globalRe = new RegExp(re.source, 'gi');
-      const matches = [];
-      let m;
-      while ((m = globalRe.exec(text)) !== null) matches.push(m[1]);
-      return matches;
-    }
   };
   PhraseIndex.rebuild(S);
+
+  /* ---------- TEXT ANALYZER CONSTANTS ---------- */
+  const _PRONOUNS = new Set(['you', 'your', "you're", 'yourself']);
+  const _IMPERATIVES = new Set(['get', 'call', 'visit', 'try', 'ask', 'switch', 'start', 'save', 'protect', 'discover', 'order', 'apply', 'enroll', 'join', 'claim']);
+  const _THIRD_PERSON = new Set(['they', 'their', 'them', 'analysts', 'investors']);
+  const _ANALYTICAL = new Set(['reported', 'expects', 'estimates', 'revenue', 'growth', 'decline', 'forecast', 'quarter', 'consensus', 'guidance']);
 
   /* ---------- TEXT ANALYZER ---------- */
   const TextAnalyzer = {
@@ -424,11 +407,9 @@
     imperativeScore(text) {
       const words = text.toLowerCase().split(/\s+/);
       if (words.length < 3) return 0;
-      const pronouns = new Set(['you', 'your', "you're", 'yourself']);
-      const imperatives = new Set(['get', 'call', 'visit', 'try', 'ask', 'switch', 'start', 'save', 'protect', 'discover', 'order', 'apply', 'enroll', 'join', 'claim']);
       let count = 0;
       for (const w of words) {
-        if (pronouns.has(w) || imperatives.has(w)) count++;
+        if (_PRONOUNS.has(w) || _IMPERATIVES.has(w)) count++;
       }
       return count / words.length;
     },
@@ -436,11 +417,9 @@
     conversationalScore(text) {
       const words = text.toLowerCase().split(/\s+/);
       if (words.length < 5) return 0;
-      const thirdPerson = new Set(['they', 'their', 'them', 'the company', 'analysts', 'investors', 'the market', 'the stock']);
-      const analytical = new Set(['reported', 'expects', 'estimates', 'revenue', 'growth', 'decline', 'forecast', 'quarter', 'year-over-year', 'consensus', 'guidance']);
       let count = 0;
       for (const w of words) {
-        if (thirdPerson.has(w) || analytical.has(w)) count++;
+        if (_THIRD_PERSON.has(w) || _ANALYTICAL.has(w)) count++;
       }
       return count / words.length;
     }
@@ -481,8 +460,7 @@
 
   SignalCollector.register('adContext', (text) => {
     const match = PhraseIndex.match('adContext', text);
-    if (!match && !URL_RE.test(text) && !PHONE_RE.test(text)) return null;
-    return { weight: WEIGHT.AD_CONTEXT, label: 'Ad context', match: match || 'url/phone' };
+    return match ? { weight: WEIGHT.AD_CONTEXT, label: 'Ad context', match } : null;
   });
 
   SignalCollector.register('ctaDetected', (text) => {
@@ -555,11 +533,6 @@
   SignalCollector.register('anchorName', (text) => {
     const match = PhraseIndex.match('anchor', text);
     return match ? { weight: WEIGHT.ANCHOR_NAME, label: 'Anchor name', match } : null;
-  });
-
-  SignalCollector.register('programAnchor', (text) => {
-    const m = PROGRAM_ANCHOR_RE.exec(text);
-    return m ? { weight: WEIGHT.PROGRAM_ANCHOR, label: 'Program anchor', match: m[1] } : null;
   });
 
   SignalCollector.register('guestIntro', (text, env) => {
@@ -792,14 +765,12 @@
   function pushCaption(text){
     const entry=`[${nowStr()}] ${text}`;
     window._captions_log.push(entry);
-    if(window._captions_log.length>S.captionLogLimit)window._captions_log.splice(0,window._captions_log.length-S.captionLogLimit);
+    if(window._captions_log.length>S.captionLogLimit*1.25)window._captions_log=window._captions_log.slice(-S.captionLogLimit);
     scheduleLogFlush();
   }
   function pushEventLog(kind,p={}){
-    const t=new Date(),pad=n=>String(n).padStart(2,'0');
-    const ts=`${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
     const line=[
-      `[${ts}] >>> ${kind}`,
+      `[${nowStr()}] >>> ${kind}`,
       p.reason?`reason=${p.reason}`:null,
       p.match?`match="${p.match}"`:null,
       p.noCcMs!==undefined?`noCcMs=${p.noCcMs}`:null,
@@ -810,7 +781,7 @@
       p.quorum!==undefined?`programQuorum=${p.quorum}`:null
     ].filter(Boolean).join(' | ');
     window._captions_log.push(line);
-    if(window._captions_log.length>S.captionLogLimit)window._captions_log.splice(0,window._captions_log.length-S.captionLogLimit);
+    if(window._captions_log.length>S.captionLogLimit*1.25)window._captions_log=window._captions_log.slice(-S.captionLogLimit);
     scheduleLogFlush();
   }
   function downloadCaptionsNow(){
@@ -818,12 +789,6 @@
     const name=`youtubetv_captions_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.txt`;
     downloadText(name,window._captions_log.join('\n')||'(no captions logged yet)');
   }
-
-  /* ---------- PROGRAM ANCHOR REGEX ---------- */
-  const PROGRAM_ANCHOR_RE = new RegExp(
-    String.raw`\b(joins us now|joining me now|welcome to|welcome back|we'?re back|back with|back to you|from washington|live (?:in|at)|earnings|beat estimates|raised guidance|analyst|conference call|tariffs?|supreme court|breaking news|economic data|cpi|ppi|jobs report|nonfarm payrolls|market (?:breadth|reaction)|s&p|nasdaq|dow|chief investment officer|portfolio manager|senior analyst|ceo|cfo|chair|closing bell|overtime|squawk box|squawk on the street|power lunch|fast money|mad money|halftime report|money movers|last call|worldwide exchange|the exchange|lightning round|final trades|stop trading)\b`,
-    'i'
-  );
 
   /* ---------- VOLUME RAMP ---------- */
   let _rampTimer = null;
@@ -923,7 +888,8 @@
       document.querySelector('.ytp-caption-window-container') || document.querySelector('.ytp-caption-window');
     _cachedVideo = video;
     _cachedCaptionWindow = captionWindow;
-    _cacheValidUntil = now + 2000;
+    // Only cache when both nodes found; retry faster when missing
+    _cacheValidUntil = (video && captionWindow) ? now + 2000 : 0;
     return { video, captionWindow };
   }
   function scheduleImmediateCheck(){
@@ -1050,7 +1016,7 @@
     ensureHUD();
     ensureSettingsButton();
     if(S.showHUD){hudFadeTo(true);updateHUDText('Initializing…',0);}
-    else if(S.hudAutoOnMute){hudFadeTo(false);} else {hudFadeTo(false);}
+    else {hudFadeTo(false);}
     ensureControlButtons();
   }
 
@@ -1387,5 +1353,8 @@
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
+  window.addEventListener('beforeunload', () => {
+    if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
+  });
   log('Booted v4.0.0',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
