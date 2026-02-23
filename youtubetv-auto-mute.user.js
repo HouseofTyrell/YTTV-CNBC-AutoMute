@@ -105,6 +105,9 @@
     // Manual override window after FP flag (prevents immediate re-mute unless hard ad)
     manualOverrideMs:8000,
 
+    captionWindowSize:5,     // Number of recent caption lines to keep
+    volumeRampMs:1500,       // Volume ramp duration on unmute (0 = instant)
+
     captionLogLimit:8000,
     autoDownloadEveryMin:0,
 
@@ -812,6 +815,50 @@
     'i'
   );
 
+  /* ---------- VOLUME RAMP ---------- */
+  let _rampTimer = null;
+  let _rampTargetVolume = 1.0;
+
+  function applyMute(video, shouldMute) {
+    if (!video) return;
+    // Cancel any active ramp
+    if (_rampTimer) { cancelAnimationFrame(_rampTimer); _rampTimer = null; }
+
+    if (shouldMute) {
+      if (S.useTrueMute) { video.muted = true; }
+      else { video.volume = 0.01; }
+      return;
+    }
+
+    // Unmute with optional ramp
+    if (S.volumeRampMs <= 0 || !S.useTrueMute) {
+      if (S.useTrueMute) video.muted = false;
+      else video.volume = Math.max(_rampTargetVolume, 0.5);
+      return;
+    }
+
+    // Ramp: unmute at low volume, then ease-in ramp up
+    video.muted = false;
+    video.volume = 0.05;
+    const startTime = performance.now();
+    const startVol = 0.05;
+    const endVol = _rampTargetVolume || 1.0;
+    const duration = S.volumeRampMs;
+
+    function step(now) {
+      const elapsed = now - startTime;
+      if (elapsed >= duration) {
+        video.volume = endVol;
+        _rampTimer = null;
+        return;
+      }
+      const progress = elapsed / duration;
+      video.volume = startVol + (endVol - startVol) * (progress * progress);
+      _rampTimer = requestAnimationFrame(step);
+    }
+    _rampTimer = requestAnimationFrame(step);
+  }
+
   /* ---------- MUTE/UNMUTE ---------- */
   function setMuted(video,shouldMute,info){
     if(!video)return;
@@ -824,8 +871,11 @@
 
     const changed=(State.lastMuteState!==shouldMute);
 
-    if(S.useTrueMute){ if(video.muted!==shouldMute) video.muted=shouldMute; }
-    else { video.volume = shouldMute ? 0.01 : Math.max(video.volume||1.0,0.01); }
+    // Save volume before muting for ramp target
+    if (shouldMute && !State.lastMuteState && video.volume > 0.05) {
+      _rampTargetVolume = video.volume;
+    }
+    applyMute(video, shouldMute);
 
     if(changed){
       const lockMsLeft=Math.max(0,State.adLockUntil-Date.now());
@@ -894,11 +944,25 @@
 
     const env = { captionsExist, captionsBottomed, noCcMs, textFeatures, imperativeScore, conversationalScore, guestIntroDetected, guestIntroMatch };
 
-    // Collect all signals
-    const signals = SignalCollector.collectAll(ccText || '', env);
+    // Collect signals from latest line
+    const signalsLatest = SignalCollector.collectAll(ccText || '', env);
+    const confLatest = calculateConfidence(signalsLatest);
 
-    // Calculate confidence
-    const confidence = calculateConfidence(signals);
+    // Also run detection on the full caption window for broader context
+    let signals = signalsLatest, confidence = confLatest;
+    if (State.captionWindow.length >= 2) {
+      const windowText = State.captionWindow.join(' ');
+      const winFeatures = TextAnalyzer.analyze(windowText);
+      const envWindow = { ...env, textFeatures: winFeatures, imperativeScore: TextAnalyzer.imperativeScore(windowText), conversationalScore: TextAnalyzer.conversationalScore(windowText) };
+      const signalsWindow = SignalCollector.collectAll(windowText, envWindow);
+      const confWindow = calculateConfidence(signalsWindow);
+      // Use whichever has higher absolute deviation from neutral (50)
+      if (Math.abs(confWindow - 50) > Math.abs(confLatest - 50)) {
+        signals = signalsWindow;
+        confidence = confWindow;
+      }
+    }
+
     State.currentConfidence = confidence;
 
     // Decide mute state
@@ -953,7 +1017,13 @@
       const seg=captionSegment?.textContent;
       if(seg && seg!==State.lastCaptionLine){ State.lastCaptionLine=seg; console.log('[YTTV-Mute] CC:',seg); }
     }
-    if(ccText && ccText!==State.lastCaptionLine){ State.lastCaptionLine=ccText; pushCaption(ccText); }
+    if(ccText && ccText!==State.lastCaptionLine){
+      State.lastCaptionLine=ccText;
+      pushCaption(ccText);
+      // Sliding caption window
+      State.captionWindow.push(ccText);
+      if(State.captionWindow.length > S.captionWindowSize) State.captionWindow.shift();
+    }
 
     if(S.autoDownloadEveryMin>0){
       const since=(Date.now()-State.lastAutoDlMs)/60000;
@@ -1111,6 +1181,8 @@
     { id: 'programVotesNeeded', tab: 'timing', type: 'number', min: 1, max: 6, label: 'Program votes needed' },
     { id: 'programQuorumLines', tab: 'timing', type: 'number', min: 1, max: 10, label: 'Quorum lines' },
     { id: 'manualOverrideMs', tab: 'timing', type: 'number', min: 0, max: 60000, label: 'Manual override (ms)' },
+    { id: 'captionWindowSize', tab: 'timing', type: 'number', min: 1, max: 20, label: 'Caption window size (lines)', section: 'Caption Window' },
+    { id: 'volumeRampMs', tab: 'timing', type: 'number', min: 0, max: 5000, label: 'Volume ramp on unmute (ms)' },
     // Phrases tab
     { id: 'hardPhrases', tab: 'phrases', type: 'textarea', rows: 7, label: 'Hard Ad Phrases' },
     { id: 'brandTerms', tab: 'phrases', type: 'textarea', rows: 6, label: 'Brand Terms' },
