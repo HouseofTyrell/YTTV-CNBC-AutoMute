@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.1.1: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.2.0: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.1.1
+// @version      4.2.0
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -275,6 +275,10 @@
     ANCHOR_NAME: -28,
     GUEST_INTRO: -22,
     SEGMENT_NAME: -18,
+    CASE_SHIFT_AD: 28,
+    CASE_SHIFT_PROGRAM: -25,
+    SPEAKER_MARKER: -15,
+    DOM_AD_SHOWING: 45,
     CONVERSATIONAL: -12,
     THIRD_PERSON: -8,
     LOCK_FLOOR: 65,
@@ -313,6 +317,7 @@
     manualMuteActive: false,
     captionWindow: [],
     lastSignals: [],
+    recentCapsRatios: [],  // last N capsRatios for case shift detection
     tuningActive: false,
     tuningStartMs: 0,
     tuningEndMs: 0,
@@ -338,6 +343,7 @@
       this.lastCaptionVisibility = null;
       this.currentConfidence = 0;
       this.captionWindow = [];
+      this.recentCapsRatios = [];
     }
   };
 
@@ -454,6 +460,11 @@
   };
 
   // --- Ad-leaning signals ---
+  SignalCollector.register('domAdShowing', (text, env) => {
+    if (!env.domAdShowing) return null;
+    return { weight: WEIGHT.DOM_AD_SHOWING, label: 'DOM ad-showing', match: 'player class' };
+  });
+
   SignalCollector.register('hardPhrase', (text) => {
     const match = PhraseIndex.match('hard', text);
     return match ? { weight: WEIGHT.HARD_PHRASE, label: 'Hard ad phrase', match } : null;
@@ -502,6 +513,24 @@
     if (f.punctDensity > 0.05) { w += WEIGHT.PUNCT_HEAVY; parts.push('punct'); }
     if (f.priceCount > 0) { w += f.priceCount * WEIGHT.PRICE_MENTION; parts.push('price'); }
     return w > 0 ? { weight: w, label: 'Text features: ' + parts.join('+'), match: null } : null;
+  });
+
+  SignalCollector.register('caseShift', (text, env) => {
+    if (!text || text.length < 10) return null;
+    const currentCaps = env.textFeatures.capsRatio;
+    const history = State.recentCapsRatios;
+    // Need at least 3 prior samples to establish a baseline
+    if (history.length < 3) return null;
+    const avgCaps = history.reduce((s, v) => s + v, 0) / history.length;
+    // Mixed case line after ALL CAPS program → strong ad signal
+    if (currentCaps < 0.5 && avgCaps > 0.85) {
+      return { weight: WEIGHT.CASE_SHIFT_AD, label: 'Case shift → ad', match: `caps=${currentCaps.toFixed(2)},avg=${avgCaps.toFixed(2)}` };
+    }
+    // ALL CAPS line after mixed case ads → strong program signal
+    if (currentCaps > 0.85 && avgCaps < 0.5) {
+      return { weight: WEIGHT.CASE_SHIFT_PROGRAM, label: 'Case shift → program', match: `caps=${currentCaps.toFixed(2)},avg=${avgCaps.toFixed(2)}` };
+    }
+    return null;
   });
 
   SignalCollector.register('imperativeVoice', (text, env) => {
@@ -557,6 +586,15 @@
   SignalCollector.register('segmentName', (text) => {
     const match = PhraseIndex.match('segment', text);
     return match ? { weight: WEIGHT.SEGMENT_NAME, label: 'Segment name', match } : null;
+  });
+
+  SignalCollector.register('speakerMarker', (text) => {
+    if (!text) return null;
+    // CNBC live captions use >> for speaker changes; ads never have this
+    if (text.includes('>>')) {
+      return { weight: WEIGHT.SPEAKER_MARKER, label: 'Speaker marker >>', match: null };
+    }
+    return null;
   });
 
   SignalCollector.register('conversational', (text, env) => {
@@ -962,7 +1000,10 @@
       }
     }
 
-    const env = { captionsExist, captionsBottomed, noCcMs, textFeatures, imperativeScore, conversationalScore, guestIntroDetected, guestIntroMatch };
+    // DOM probe: check if player has ad-showing class (works on youtube.com, may work on tv.youtube.com)
+    const domAdShowing = !!document.querySelector('.html5-video-player.ad-showing');
+
+    const env = { captionsExist, captionsBottomed, noCcMs, textFeatures, imperativeScore, conversationalScore, guestIntroDetected, guestIntroMatch, domAdShowing };
 
     // Collect signals from latest line
     const signalsLatest = SignalCollector.collectAll(ccText || '', env);
@@ -1064,6 +1105,10 @@
       // Sliding caption window
       State.captionWindow.push(ccText);
       if(State.captionWindow.length > S.captionWindowSize) State.captionWindow.shift();
+      // Track capsRatio history for case shift detection
+      const _cr = TextAnalyzer.analyze(ccText).capsRatio;
+      State.recentCapsRatios.push(_cr);
+      if(State.recentCapsRatios.length > 8) State.recentCapsRatios.shift();
     }
 
     if(S.autoDownloadEveryMin>0){
@@ -1377,7 +1422,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.1.1',
+      version: '4.2.0',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
