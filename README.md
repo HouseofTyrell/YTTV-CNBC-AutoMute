@@ -147,7 +147,7 @@ Share the downloaded tuning report in a new session for analysis and weight tuni
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `intervalMs` | 150 | How often to check captions (ms) |
-| `confidenceThreshold` | 72 | Mute when confidence >= this (0-100) |
+| `confidenceThreshold` | 65 | Mute when confidence >= this (0-100) |
 | `muteOnNoCCDelayMs` | 2500 | How quickly to mute when captions disappear (ms) |
 | `noCcHitsToMute` | 2 | Consecutive no-caption checks before muting |
 | `minAdLockMs` | 45000 | Minimum ad lock duration (45 seconds) |
@@ -252,5 +252,5 @@ Developed for CNBC and financial news viewers on YouTube TV. Optimized for finan
 
 ---
 
-**Version**: 4.0.4
+**Version**: 4.3.2
 **Last Updated**: 2026

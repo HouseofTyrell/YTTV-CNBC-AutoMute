@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.3.1: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.3.2: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.3.1
+// @version      4.3.2
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -86,10 +86,10 @@
     showTuningUI:true,
 
     // Caption visibility
-    hideCaptions:false,
+    hideCaptions:true,
 
     // HUD
-    showHUD:false,
+    showHUD:true,
     hudAutoOnMute:true,
     hudAutoDelayMs:1000,
     hudFadeMs:250,
@@ -98,8 +98,8 @@
     // Confidence Meter
     showConfidenceMeter:true,
     confidenceMeterStyle:'bar',  // 'bar', 'numeric', 'both'
-    confidenceThreshold:72,      // Mute when confidence >= this value (0-100)
-    showHudSlider:true,          // Show threshold slider on HUD (can disable to reduce HUD size)
+    confidenceThreshold:65,      // Mute when confidence >= this value (0-100)
+    showHudSlider:false,          // Show threshold slider on HUD (can disable to reduce HUD size)
 
     // Timing / CC loss
     muteOnNoCCDelayMs:2500,  // ms before muting on caption loss
@@ -175,7 +175,8 @@
       "aarp","whopper","subway","expedia","trivago","indeed","ziprecruiter",
       "invesco","coventry direct",
       "cdw","vrbo",
-      "dexcom","fidelity trader"
+      "dexcom","fidelity trader",
+      "shopify","e*trade","etrade"
     ].join('\n'),
 
     adContext: [
@@ -259,7 +260,7 @@
     ],
   };
 
-  const SETTINGS_KEY='yttp_settings_v4_3_1';
+  const SETTINGS_KEY='yttp_settings_v4_3_2';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -375,7 +376,9 @@
         if (!phrases.length) return null;
         const escaped = phrases.map(p => {
           const esc = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          return wordBound ? '\\b' + esc + '\\b' : esc;
+          // Only apply \b for short terms (<6 chars) — longer terms are specific enough
+          // and CNBC captions concatenate words (e.g., "TOSHOPIFY") which breaks \b
+          return (wordBound && p.length < 6) ? '\\b' + esc + '\\b' : esc;
         });
         return new RegExp('(' + escaped.join('|') + ')', 'i');
       };
@@ -1467,7 +1470,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.3.1',
+      version: '4.3.2',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1654,7 +1657,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.1 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.2 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1750,5 +1753,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.3.1',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.3.2',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
