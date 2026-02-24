@@ -798,7 +798,7 @@
     btn.textContent='⚙️';
     btn.title='Settings (Ctrl+Shift+S)';
     btn.style.cssText=[
-      'position:fixed','right:12px','top:12px','z-index:2147483647',
+      'position:fixed','right:72px','top:12px','z-index:2147483647',
       'background:#1f6feb','color:#fff','border:none','border-radius:8px',
       'padding:8px 12px','font:16px/1 system-ui,sans-serif',
       'box-shadow:0 6px 18px rgba(0,0,0,.3)','cursor:pointer','pointer-events:auto'
@@ -815,7 +815,7 @@
     btn.textContent='🔇';
     btn.title='Manual Mute Toggle';
     btn.style.cssText=[
-      'position:fixed','right:68px','top:12px','z-index:2147483647',
+      'position:fixed','right:128px','top:12px','z-index:2147483647',
       'background:#444','color:#fff','border:none','border-radius:8px',
       'padding:8px 12px','font:16px/1 system-ui,sans-serif',
       'box-shadow:0 6px 18px rgba(0,0,0,.3)','cursor:pointer','pointer-events:auto'
