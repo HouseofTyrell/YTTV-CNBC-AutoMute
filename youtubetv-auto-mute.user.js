@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.0.4: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.0.5: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.0.4
+// @version      4.0.5
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -31,7 +31,7 @@
   }catch{}
   Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,
     hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
-    flagBtn:null,btnContainer:null,settingsBtn:null,muteBtn:null,tuningBtn:null,_lastUrl:location.href});
+    flagBtn:null,btnContainer:null,settingsBtn:null,muteBtn:null,tuningBtn:null,softFlagBtn:null,addMinBtn:null,_lastUrl:location.href});
 
   /* ---------- STORAGE SHIMS ---------- */
   const hasGM_get = typeof GM_getValue==='function';
@@ -310,6 +310,7 @@
     lastSignals: [],
     tuningActive: false,
     tuningStartMs: 0,
+    tuningEndMs: 0,
     tuningSnapshots: [],
     tuningFlags: [],
     tuningLogStartIdx: 0,
@@ -877,7 +878,7 @@
 
     let statusPrefix = State.manualMuteActive ? '[MANUAL MUTE] ' : (State.enabled?'':'[PAUSED] ');
     if (State.tuningActive) {
-      const remaining = Math.max(0, S.tuningDurationMs - (Date.now() - State.tuningStartMs));
+      const remaining = Math.max(0, State.tuningEndMs - Date.now());
       const min = Math.floor(remaining / 60000);
       const sec = Math.floor((remaining % 60000) / 1000);
       statusPrefix = '[TUNING ' + min + ':' + String(sec).padStart(2, '0') + '] ' + statusPrefix;
@@ -988,7 +989,7 @@
           adLock: t < State.adLockUntil,
         });
       }
-      if (elapsed >= S.tuningDurationMs) endTuningSession();
+      if (t >= State.tuningEndMs) endTuningSession();
     }
   }
 
@@ -1124,6 +1125,24 @@
     if (!S.showTuningUI) tuneBtn.style.display='none';
     container.appendChild(tuneBtn);
     NS.tuningBtn=tuneBtn;
+
+    // Soft Flag button (visible only during tuning)
+    const softFlagBtn=document.createElement('button');
+    softFlagBtn.textContent='Soft Flag';
+    softFlagBtn.style.cssText=btnStyle.replace('#1f6feb','#b08800');
+    softFlagBtn.style.display='none';
+    softFlagBtn.addEventListener('click',flagTuningOnly);
+    container.appendChild(softFlagBtn);
+    NS.softFlagBtn=softFlagBtn;
+
+    // Add 1 Minute button (visible only during tuning)
+    const addMinBtn=document.createElement('button');
+    addMinBtn.textContent='+1 Min';
+    addMinBtn.style.cssText=btnStyle.replace('#1f6feb','#6e40c9');
+    addMinBtn.style.display='none';
+    addMinBtn.addEventListener('click',addTuningMinute);
+    container.appendChild(addMinBtn);
+    NS.addMinBtn=addMinBtn;
   }
 
   function flagIncorrectState(){
@@ -1174,10 +1193,59 @@
     log('Feedback logged:', entry.action, 'confidence:', entry.confidence, 'signals:', entry.signals.length);
   }
 
+  function flagTuningOnly() {
+    const {captionWindow}=detectNodes();
+    const cc=(captionWindow?.textContent||'').trim();
+    const wasMuted=State.lastMuteState===true;
+
+    const entry = {
+      timestamp: new Date().toISOString(),
+      action: wasMuted ? 'FALSE_POSITIVE' : 'FALSE_NEGATIVE',
+      softFlag: true,
+      wasMuted,
+      captionText: truncate(cc, 200),
+      lastNLines: [...State.captionWindow],
+      confidence: State.currentConfidence,
+      signals: (State.lastSignals || []).map(s => ({
+        source: s.source, weight: s.weight, match: s.match
+      })),
+      adLockActive: Date.now() < State.adLockUntil,
+      url: location.href,
+      programQuorum: State.programQuorumCount,
+    };
+
+    _feedbackLog.push(entry);
+    if (State.tuningActive) State.tuningFlags.push(entry);
+    kvSet(FEEDBACK_KEY, _feedbackLog);
+    log('Soft flag logged:', entry.action, 'confidence:', entry.confidence, '(no state change)');
+
+    if (NS.softFlagBtn) {
+      NS.softFlagBtn.textContent = 'Flagged!';
+      NS.softFlagBtn.style.background = '#238636';
+      setTimeout(() => {
+        if (NS.softFlagBtn) {
+          NS.softFlagBtn.textContent = 'Soft Flag';
+          NS.softFlagBtn.style.background = '#b08800';
+        }
+      }, 800);
+    }
+  }
+
+  function addTuningMinute() {
+    if (!State.tuningActive) return;
+    State.tuningEndMs += 60000;
+    log('Tuning session extended +1 min (ends at ' + new Date(State.tuningEndMs).toLocaleTimeString() + ')');
+    if (NS.addMinBtn) {
+      NS.addMinBtn.textContent = '+1 min added!';
+      setTimeout(() => { if (NS.addMinBtn) NS.addMinBtn.textContent = '+1 Min'; }, 800);
+    }
+  }
+
   /* ---------- TUNING SESSION ---------- */
   function startTuningSession() {
     State.tuningActive = true;
     State.tuningStartMs = Date.now();
+    State.tuningEndMs = Date.now() + S.tuningDurationMs;
     State.tuningSnapshots = [];
     State.tuningFlags = [];
     State.tuningLogStartIdx = window._captions_log.length;
@@ -1186,6 +1254,8 @@
       NS.tuningBtn.textContent = 'Stop Tuning';
       NS.tuningBtn.style.background = '#e5534b';
     }
+    if (NS.softFlagBtn) NS.softFlagBtn.style.display = '';
+    if (NS.addMinBtn) NS.addMinBtn.style.display = '';
   }
 
   function stopTuningSession() {
@@ -1196,6 +1266,8 @@
       NS.tuningBtn.textContent = 'Start Tuning';
       NS.tuningBtn.style.background = '#238636';
     }
+    if (NS.softFlagBtn) NS.softFlagBtn.style.display = 'none';
+    if (NS.addMinBtn) NS.addMinBtn.style.display = 'none';
     showTuningDialog();
   }
 
@@ -1265,7 +1337,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.0.4',
+      version: '4.0.5',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
