@@ -252,5 +252,5 @@ Developed for CNBC and financial news viewers on YouTube TV. Optimized for finan
 
 ---
 
-**Version**: 4.0.3
+**Version**: 4.0.4
 **Last Updated**: 2026

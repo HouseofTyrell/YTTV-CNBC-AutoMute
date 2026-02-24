@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.0.3: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.0.4: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.0.3
+// @version      4.0.4
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -69,7 +69,8 @@
     debug:true,
     debugVerboseCC:false,
 
-    // Review features
+    // Review / tuning
+    showTuningUI:true,
     llmReviewEnabled:false,
     showFrequentWords:false,
 
@@ -1092,7 +1093,7 @@
     const container=document.createElement('div');
     container.style.cssText=[
       'position:fixed','left:12px','top:12px','z-index:2147483647',
-      'display:flex','flex-direction:column','gap:8px','pointer-events:none'
+      'display:flex','flex-direction:row','gap:8px','pointer-events:none'
     ].join(';');
     NS.btnContainer=container;
     document.documentElement.appendChild(container);
@@ -1112,7 +1113,7 @@
     flagBtn.addEventListener('click',flagIncorrectState);
     container.appendChild(flagBtn); NS.flagBtn=flagBtn;
 
-    // Start Tuning Session button
+    // Start Tuning Session button (only when showTuningUI enabled)
     const tuneBtn=document.createElement('button');
     tuneBtn.textContent='Start Tuning';
     tuneBtn.style.cssText=btnStyle.replace('#1f6feb','#238636');
@@ -1120,6 +1121,7 @@
       if(State.tuningActive)stopTuningSession();
       else startTuningSession();
     });
+    if (!S.showTuningUI) tuneBtn.style.display='none';
     container.appendChild(tuneBtn);
     NS.tuningBtn=tuneBtn;
   }
@@ -1263,7 +1265,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.0.3',
+      version: '4.0.4',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1305,6 +1307,7 @@
     { id: 'useTrueMute', tab: 'general', type: 'checkbox', label: 'True mute (vs low volume)' },
     { id: 'debug', tab: 'general', type: 'checkbox', label: 'Console debug logging' },
     { id: 'debugVerboseCC', tab: 'general', type: 'checkbox', label: 'Verbose CC debug' },
+    { id: 'showTuningUI', tab: 'general', type: 'checkbox', label: 'Show tuning session button', section: 'Debug / Tuning' },
     { id: 'llmReviewEnabled', tab: 'general', type: 'checkbox', label: 'Enable LLM Review', section: 'Review Features' },
     { id: 'showFrequentWords', tab: 'general', type: 'checkbox', label: 'Show Frequent Words' },
     { id: 'hideCaptions', tab: 'general', type: 'checkbox', label: 'Hide captions from view', section: 'Caption Display' },
@@ -1449,7 +1452,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.0.3 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.0.4 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1514,6 +1517,7 @@
       PhraseIndex.rebuild(S);
       saveSettings(S);
       applySettings(true);
+      if (NS.tuningBtn) NS.tuningBtn.style.display = S.showTuningUI ? '' : 'none';
       alert('Settings saved and applied.');
     };
     return panel;
@@ -1536,5 +1540,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.0.3',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.0.4',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
