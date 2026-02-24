@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.2.6: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.2.7: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.2.6
+// @version      4.2.7
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -776,7 +776,8 @@
     if (_hudRefs.reason) _hudRefs.reason.textContent = reason;
 
     if (S.showConfidenceMeter && _hudRefs.meter) {
-      const color = confidence >= S.confidenceThreshold ? '#ff4444' : (confidence > 40 ? '#ffaa00' : '#44dd55');
+      const thr = S.confidenceThreshold;
+      const color = confidence >= thr ? '#ff4444' : (confidence >= thr - 15 ? '#ff8800' : '#22cc44');
       if (S.confidenceMeterStyle === 'bar' || S.confidenceMeterStyle === 'both') {
         const barWidth = 15;
         const filled = Math.round((confidence / 100) * barWidth);
@@ -1436,7 +1437,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.2.6',
+      version: '4.2.7',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1627,7 +1628,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.6 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.7 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1725,5 +1726,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.2.6',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.2.7',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
