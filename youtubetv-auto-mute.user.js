@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.0.5: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.0.6: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.0.5
+// @version      4.0.6
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -1090,14 +1090,25 @@
   function ensureControlButtons(){
     if(NS.btnContainer)return;
 
-    // Create container for all buttons
+    // Create outer container (column layout for two rows)
     const container=document.createElement('div');
     container.style.cssText=[
       'position:fixed','left:12px','top:12px','z-index:2147483647',
-      'display:flex','flex-direction:row','gap:8px','pointer-events:none'
+      'display:flex','flex-direction:column','gap:8px','pointer-events:none'
     ].join(';');
     NS.btnContainer=container;
     document.documentElement.appendChild(container);
+
+    // Row 1: main buttons
+    const row1=document.createElement('div');
+    row1.style.cssText='display:flex;flex-direction:row;gap:8px';
+    container.appendChild(row1);
+
+    // Row 2: tuning-only buttons (hidden by default)
+    const row2=document.createElement('div');
+    row2.style.cssText='display:none;flex-direction:row;gap:8px';
+    container.appendChild(row2);
+    NS.tuningRow=row2;
 
     // Common button style
     const btnStyle=[
@@ -1107,14 +1118,14 @@
       'min-width:160px','text-align:center'
     ].join(';');
 
-    // Flag Incorrect State button
+    // Flag Incorrect State button (row 1)
     const flagBtn=document.createElement('button');
     flagBtn.textContent='Flag Incorrect State';
     flagBtn.style.cssText=btnStyle.replace('#1f6feb','#e5534b');
     flagBtn.addEventListener('click',flagIncorrectState);
-    container.appendChild(flagBtn); NS.flagBtn=flagBtn;
+    row1.appendChild(flagBtn); NS.flagBtn=flagBtn;
 
-    // Start Tuning Session button (only when showTuningUI enabled)
+    // Start Tuning Session button (row 1)
     const tuneBtn=document.createElement('button');
     tuneBtn.textContent='Start Tuning';
     tuneBtn.style.cssText=btnStyle.replace('#1f6feb','#238636');
@@ -1123,25 +1134,23 @@
       else startTuningSession();
     });
     if (!S.showTuningUI) tuneBtn.style.display='none';
-    container.appendChild(tuneBtn);
+    row1.appendChild(tuneBtn);
     NS.tuningBtn=tuneBtn;
 
-    // Soft Flag button (visible only during tuning)
+    // Soft Flag button (row 2, visible only during tuning)
     const softFlagBtn=document.createElement('button');
     softFlagBtn.textContent='Soft Flag';
     softFlagBtn.style.cssText=btnStyle.replace('#1f6feb','#b08800');
-    softFlagBtn.style.display='none';
     softFlagBtn.addEventListener('click',flagTuningOnly);
-    container.appendChild(softFlagBtn);
+    row2.appendChild(softFlagBtn);
     NS.softFlagBtn=softFlagBtn;
 
-    // Add 1 Minute button (visible only during tuning)
+    // Add 1 Minute button (row 2, visible only during tuning)
     const addMinBtn=document.createElement('button');
     addMinBtn.textContent='+1 Min';
     addMinBtn.style.cssText=btnStyle.replace('#1f6feb','#6e40c9');
-    addMinBtn.style.display='none';
     addMinBtn.addEventListener('click',addTuningMinute);
-    container.appendChild(addMinBtn);
+    row2.appendChild(addMinBtn);
     NS.addMinBtn=addMinBtn;
   }
 
@@ -1254,8 +1263,7 @@
       NS.tuningBtn.textContent = 'Stop Tuning';
       NS.tuningBtn.style.background = '#e5534b';
     }
-    if (NS.softFlagBtn) NS.softFlagBtn.style.display = '';
-    if (NS.addMinBtn) NS.addMinBtn.style.display = '';
+    if (NS.tuningRow) NS.tuningRow.style.display = 'flex';
   }
 
   function stopTuningSession() {
@@ -1266,8 +1274,7 @@
       NS.tuningBtn.textContent = 'Start Tuning';
       NS.tuningBtn.style.background = '#238636';
     }
-    if (NS.softFlagBtn) NS.softFlagBtn.style.display = 'none';
-    if (NS.addMinBtn) NS.addMinBtn.style.display = 'none';
+    if (NS.tuningRow) NS.tuningRow.style.display = 'none';
     showTuningDialog();
   }
 
@@ -1337,7 +1344,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.0.5',
+      version: '4.0.6',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
