@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.2.5: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.2.6: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.2.5
+// @version      4.2.6
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -1436,7 +1436,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.2.5',
+      version: '4.2.6',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1610,6 +1610,8 @@
         <div style="font-weight:600;font-size:13px;">Settings Management</div>
         ${menuBtn('export','Export Settings to File','')}
         <label style="${btnS};display:flex;justify-content:center;align-items:center;position:relative;overflow:hidden;">Import Settings<input id="import" type="file" accept="application/json" style="opacity:0;position:absolute;left:0;top:0;width:100%;height:100%;cursor:pointer;"></label>
+        ${menuBtn('refreshDetection','Refresh Detection Settings','','#238636')}
+        <div style="font-size:11px;color:#888;margin-top:-4px;">Resets phrases, timing, and thresholds to latest defaults. Keeps your UI preferences (HUD, hide CC, debug, etc.).</div>
         ${menuBtn('reset','Reset All to Defaults','','#444')}
         ${menuBtn('clearCache','Clear All Cache (Remove Stale Data)','','#8b0000')}
         <div style="font-size:11px;color:#888;margin-top:-4px;">Removes all stored data (settings, logs, feedback) including stale entries from old versions. Script will reload with fresh defaults.</div>
@@ -1625,7 +1627,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.5 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.6 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1676,6 +1678,15 @@
       r.onload = () => { try { S = { ...DEFAULTS, ...JSON.parse(r.result) }; PhraseIndex.rebuild(S); saveSettings(S); applySettings(true); alert('Imported.'); NS.panelEl.remove(); NS.panelEl = null; togglePanel(); } catch { alert('Invalid file.'); } };
       r.readAsText(f);
     };
+    panel.querySelector('#refreshDetection').onclick = () => {
+      const USER_PREFS = ['useTrueMute','debug','debugVerboseCC','showTuningUI','llmReviewEnabled','showFrequentWords','hideCaptions','showHUD','hudAutoOnMute','showConfidenceMeter','showHudSlider','confidenceMeterStyle','confidenceThreshold','hudAutoDelayMs','hudFadeMs','hudSlidePx','captionLogLimit','autoDownloadEveryMin','volumeRampMs'];
+      const preserved = {};
+      USER_PREFS.forEach(k => { if (k in S) preserved[k] = S[k]; });
+      S = { ...DEFAULTS, ...preserved };
+      PhraseIndex.rebuild(S); saveSettings(S); applySettings(true);
+      NS.panelEl.remove(); NS.panelEl = null; togglePanel();
+      alert('Detection settings refreshed. Your UI preferences were kept.');
+    };
     panel.querySelector('#reset').onclick = () => { if (!confirm('Reset to defaults?')) return; S = { ...DEFAULTS }; PhraseIndex.rebuild(S); saveSettings(S); applySettings(true); NS.panelEl.remove(); NS.panelEl = null; togglePanel(); };
     panel.querySelector('#clearCache').onclick = () => { if (!confirm('Clear ALL cached data? This removes settings, logs, feedback, and stale entries from old versions. The page will reload with fresh defaults.')) return; const n = kvClearAll(); window._captions_log = []; _feedbackLog = []; log(`Cleared ${n} storage entries`); location.reload(); };
     const _tuneBtn = panel.querySelector('#startTuning');
@@ -1714,5 +1725,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.2.5',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.2.6',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
