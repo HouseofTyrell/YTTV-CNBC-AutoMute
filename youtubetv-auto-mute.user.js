@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.3.4: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.3.5: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.3.4
+// @version      4.3.5
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -177,7 +177,8 @@
       "cdw","vrbo",
       "dexcom","fidelity trader",
       "shopify","e*trade","etrade",
-      "godaddy","ameriprise","noom"
+      "godaddy","ameriprise","noom",
+      "crowdstrike","servicenow","quo phone"
     ].join('\n'),
 
     adContext: [
@@ -261,7 +262,7 @@
     ],
   };
 
-  const SETTINGS_KEY='yttp_settings_v4_3_4';
+  const SETTINGS_KEY='yttp_settings_v4_3_5';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -283,7 +284,7 @@
     PUNCT_HEAVY: 4,
     PRICE_MENTION: 5,
     CAPTION_LOSS_MAX: 25,
-    CAPTION_BOTTOMED: 4,
+    CAPTION_BOTTOMED: 10,
     PROGRAM_ALLOW: -45,
     RETURN_FROM_BREAK: -42,
     ANCHOR_NAME: -28,
@@ -533,7 +534,11 @@
     const _avgCaps = _hist.length >= 3 ? _hist.reduce((s,v) => s+v, 0) / _hist.length : 0;
     if (f.capsRatio > 0.95 && !(_hist.length >= 3 && _avgCaps > 0.85)) { w += WEIGHT.CAPS_HEAVY; parts.push('caps'); }
     if (f.punctDensity > 0.05) { w += WEIGHT.PUNCT_HEAVY; parts.push('punct'); }
-    if (f.priceCount > 0) { w += f.priceCount * WEIGHT.PRICE_MENTION; parts.push('price'); }
+    // Suppress price signal on financial news — dollar amounts are normal on CNBC
+    if (f.priceCount > 0) {
+      const recentProgram = State.lastStrongProgramMs && (Date.now() - State.lastStrongProgramMs < 30000);
+      if (!recentProgram) { w += f.priceCount * WEIGHT.PRICE_MENTION; parts.push('price'); }
+    }
     return w > 0 ? { weight: w, label: 'Text features: ' + parts.join('+'), match: null } : null;
   });
 
@@ -684,6 +689,14 @@
 
     // Quorum decay on staleness — if no strong program signal in 20s, erode quorum
     if (State.lastStrongProgramMs && (t - State.lastStrongProgramMs > 20000)) {
+      State.programQuorumCount = Math.max(0, State.programQuorumCount - 1);
+      State.programVotes = Math.max(0, State.programVotes - 1);
+    }
+
+    // Quorum decay on ad-like signals — erode quorum when ad signals appear
+    // (catches back-to-back ad breaks where quorum carries over from prior program)
+    const adSignalWeight = signalResults.filter(s => s.weight > 0).reduce((sum, s) => sum + s.weight, 0);
+    if (adSignalWeight >= 10) {
       State.programQuorumCount = Math.max(0, State.programQuorumCount - 1);
       State.programVotes = Math.max(0, State.programVotes - 1);
     }
@@ -1486,7 +1499,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.3.4',
+      version: '4.3.5',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1673,7 +1686,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.4 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.5 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1769,5 +1782,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.3.4',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.3.5',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
