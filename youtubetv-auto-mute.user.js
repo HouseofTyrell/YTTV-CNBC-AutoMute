@@ -1609,7 +1609,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.0.4 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.0 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1697,5 +1697,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.0.4',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.2.0',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
