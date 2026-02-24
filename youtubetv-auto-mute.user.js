@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.3.0: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.3.1: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.3.0
+// @version      4.3.1
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -149,7 +149,7 @@
 
     brandTerms: [
       // Telecom
-      "capital one","t-mobile","tmobile","verizon","at&t","att","comcast","xfinity",
+      "capital one","t-mobile","tmobile","verizon","at&t","comcast","xfinity",
       // Insurance
       "liberty mutual","progressive","geico","state farm","allstate","nationwide","usaa","farmers","travelers",
       // Pharma
@@ -259,7 +259,7 @@
     ],
   };
 
-  const SETTINGS_KEY='yttp_settings_v4_3';
+  const SETTINGS_KEY='yttp_settings_v4_3_1';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -358,7 +358,7 @@
     }
   };
 
-  const URL_RE=/\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i;
+  const URL_RE=/\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|org|net|edu|gov|io|co|us|biz|info|tv|me|app|dev)\b/i;
   const PHONE_RE=/\b(?:\d{3}[-\s.]?\d{3}[-\s.]?\d{4})\b/;
 
   /* ---------- PHRASE INDEX ---------- */
@@ -371,9 +371,12 @@
         const raw = Array.isArray(val) ? val.join('\n') : (val || '');
         return raw.split('\n').map(s => s.trim().toLowerCase()).filter(Boolean);
       };
-      const compile = (phrases) => {
+      const compile = (phrases, wordBound) => {
         if (!phrases.length) return null;
-        const escaped = phrases.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        const escaped = phrases.map(p => {
+          const esc = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          return wordBound ? '\\b' + esc + '\\b' : esc;
+        });
         return new RegExp('(' + escaped.join('|') + ')', 'i');
       };
 
@@ -391,7 +394,7 @@
       };
 
       for (const [key, list] of Object.entries(this.lists)) {
-        this._compiled[key] = compile(list);
+        this._compiled[key] = compile(list, key === 'brand');
       }
     },
 
@@ -520,7 +523,9 @@
   SignalCollector.register('textFeatures', (text, env) => {
     const f = env.textFeatures;
     let w = 0, parts = [];
-    if (f.capsRatio > 0.95) { w += WEIGHT.CAPS_HEAVY; parts.push('caps'); }
+    const _hist = State.recentCapsRatios;
+    const _avgCaps = _hist.length >= 3 ? _hist.reduce((s,v) => s+v, 0) / _hist.length : 0;
+    if (f.capsRatio > 0.95 && !(_hist.length >= 3 && _avgCaps > 0.85)) { w += WEIGHT.CAPS_HEAVY; parts.push('caps'); }
     if (f.punctDensity > 0.05) { w += WEIGHT.PUNCT_HEAVY; parts.push('punct'); }
     if (f.priceCount > 0) { w += f.priceCount * WEIGHT.PRICE_MENTION; parts.push('price'); }
     return w > 0 ? { weight: w, label: 'Text features: ' + parts.join('+'), match: null } : null;
@@ -651,7 +656,8 @@
       State.programQuorumCount = S.programQuorumLines;
       return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
     }
-    if (hasProgramAllow && !(t < State.adLockUntil)) {
+    if (hasProgramAllow) {
+      State.adLockUntil = 0;
       State.programVotes = S.programVotesNeeded;
       State.programQuorumCount = S.programQuorumLines;
       return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
@@ -705,7 +711,7 @@
     const quorumFresh = State.lastStrongProgramMs && (t - State.lastStrongProgramMs < 15000);
     if (votesOK && quorumOK && timeOK && quorumFresh) return { shouldMute: false, reason: 'PROGRAM_QUORUM_MET' };
 
-    if (confidence < WEIGHT.BASE) return { shouldMute: false, reason: 'LOW_CONFIDENCE' };
+    if (confidence < S.confidenceThreshold - 10) return { shouldMute: false, reason: 'LOW_CONFIDENCE' };
     return { shouldMute: State.lastMuteState === true, reason: 'BUILDING_QUORUM' };
   }
 
@@ -1461,7 +1467,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.3.0',
+      version: '4.3.1',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1648,7 +1654,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.0 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.1 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1744,5 +1750,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.3.0',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.3.1',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
