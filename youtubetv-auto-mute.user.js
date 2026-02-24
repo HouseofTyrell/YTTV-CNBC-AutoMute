@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.0.6: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.1.0: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.0.6
+// @version      4.1.0
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -132,8 +132,9 @@
       "get your money right","policy for only","guaranteed buyback option","own your place in the future",
 
       // MEDICARE/BENEFITS — strong ad signals kept here
-      "licensed agent","call the number","tty",
-      "$0 premium","$0 copay","speak to a licensed agent","talk to a licensed agent"
+      "licensed agent","call the number","tty users","tty number","tty relay",
+      "$0 premium","$0 copay","speak to a licensed agent","talk to a licensed agent",
+      "before investing, carefully read","investment objectives, risks, charges","read the prospectus"
     ].join('\n'),
 
     brandTerms: [
@@ -161,7 +162,8 @@
       // Legal
       "if you or a loved one","class action","lawsuit","mesothelioma",
       // Other
-      "aarp","whopper","subway","expedia","trivago","indeed","ziprecruiter"
+      "aarp","whopper","subway","expedia","trivago","indeed","ziprecruiter",
+      "invesco","coventry direct"
     ].join('\n'),
 
     adContext: [
@@ -174,7 +176,8 @@
       "satisfaction guaranteed","money-back guarantee","no obligation","risk-free",
       "available at","sold at","find it at","order yours","order now","shop now",
       "for more information","available now","now available","act now","don't wait",
-      "official sponsor","proud sponsor","proud partner","as seen on"
+      "official sponsor","proud sponsor","proud partner","as seen on",
+      "prospectus","gps voice","rerouting"
     ].join('\n'),
 
     ctaTerms: ["apply","sign up","join now","call","visit","learn more","enroll","enrollment","get started","download","claim","see details","speak to an agent","licensed agent"],
@@ -186,7 +189,7 @@
       "earnings","guidance","conference call","analyst","beat estimates","raised guidance",
       "tariff","tariffs","supreme court","breaking news",
       "economic data","cpi","ppi","jobs report","nonfarm payrolls",
-      "market breadth","s&p","nasdaq","dow","back to you","we're back","we are back","back with",
+      "market breadth","s&p","the nasdaq","nasdaq composite","nasdaq is","nasdaq was","the dow","dow jones","dow industrials","back to you","we're back","we are back","back with",
       "chief investment officer","portfolio manager","senior analyst","ceo","cfo","chair",
       "welcome to closing bell","overtime is back","welcome back",
       // CNBC show names
@@ -492,7 +495,7 @@
   SignalCollector.register('textFeatures', (text, env) => {
     const f = env.textFeatures;
     let w = 0, parts = [];
-    if (f.capsRatio > 0.3) { w += WEIGHT.CAPS_HEAVY; parts.push('caps'); }
+    if (f.capsRatio > 0.95) { w += WEIGHT.CAPS_HEAVY; parts.push('caps'); }
     if (f.punctDensity > 0.05) { w += WEIGHT.PUNCT_HEAVY; parts.push('punct'); }
     if (f.priceCount > 0) { w += f.priceCount * WEIGHT.PRICE_MENTION; parts.push('price'); }
     return w > 0 ? { weight: w, label: 'Text features: ' + parts.join('+'), match: null } : null;
@@ -569,8 +572,10 @@
     for (const signal of signalResults) {
       score += signal.weight;
     }
-    if (State.adLockUntil > Date.now() && score < WEIGHT.LOCK_FLOOR) {
-      score = WEIGHT.LOCK_FLOOR;
+    if (State.adLockUntil > Date.now()) {
+      const lockRemaining = State.adLockUntil - Date.now();
+      const dynamicFloor = WEIGHT.BASE + (WEIGHT.LOCK_FLOOR - WEIGHT.BASE) * Math.min(1, lockRemaining / S.minAdLockMs);
+      if (score < dynamicFloor) score = dynamicFloor;
     }
     score -= State.programQuorumCount * WEIGHT.QUORUM_REDUCTION_PER;
     return Math.max(0, Math.min(100, Math.round(score)));
@@ -585,11 +590,16 @@
     if (t < State.manualOverrideUntil) return { shouldMute: false, reason: 'MANUAL_OVERRIDE' };
 
     const meetsThreshold = confidence >= S.confidenceThreshold;
-    const hasStrongProgram = signalResults.some(s =>
-      s.source === 'programAllow' || s.source === 'returnFromBreak');
+    const hasReturnFromBreak = signalResults.some(s => s.source === 'returnFromBreak');
+    const hasProgramAllow = signalResults.some(s => s.source === 'programAllow');
 
-    if (hasStrongProgram) {
+    if (hasReturnFromBreak) {
       State.adLockUntil = 0;
+      State.programVotes = S.programVotesNeeded;
+      State.programQuorumCount = S.programQuorumLines;
+      return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
+    }
+    if (hasProgramAllow && !(t < State.adLockUntil)) {
       State.programVotes = S.programVotesNeeded;
       State.programQuorumCount = S.programQuorumLines;
       return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
@@ -604,7 +614,7 @@
 
     const lockActive = t < State.adLockUntil;
 
-    const programSignal = signalResults.some(s => s.weight < -10);
+    const programSignal = signalResults.some(s => s.weight < -5);
     if (programSignal && !lockActive) {
       State.programVotes = Math.min(S.programVotesNeeded, State.programVotes + 1);
       State.programQuorumCount = Math.min(S.programQuorumLines, State.programQuorumCount + 1);
@@ -945,7 +955,7 @@
 
     // Also run detection on the full caption window for broader context
     let signals = signalsLatest, confidence = confLatest;
-    if (State.captionWindow.length >= 2) {
+    if (State.captionWindow.length >= 2 && noCcMs < S.muteOnNoCCDelayMs) {
       const windowText = State.captionWindow.join(' ');
       const winFeatures = TextAnalyzer.analyze(windowText);
       const envWindow = { ...env, textFeatures: winFeatures, imperativeScore: TextAnalyzer.imperativeScore(windowText), conversationalScore: TextAnalyzer.conversationalScore(windowText) };
@@ -956,6 +966,11 @@
         signals = signalsWindow;
         confidence = confWindow;
       }
+    }
+
+    // Clear stale window on break cue to prevent lingering program phrases
+    if (signals.some(s => s.source === 'breakCue')) {
+      State.captionWindow = [];
     }
 
     State.currentConfidence = confidence;
@@ -1195,6 +1210,9 @@
         State.manualOverrideUntil=Date.now()+S.manualOverrideMs;
         setMuted(video,false,{reason:'FLAG_UNMUTE',match:null,ccSnippet:truncate(cc),noCcMs:Date.now()-State.lastCcSeenMs,confidence:State.currentConfidence,signals:[]});
       }else{
+        State.adLockUntil=Date.now()+S.minAdLockMs;
+        State.programVotes=0;
+        State.programQuorumCount=0;
         setMuted(video,true,{reason:'FLAG_MUTE',match:null,ccSnippet:truncate(cc),noCcMs:Date.now()-State.lastCcSeenMs,confidence:State.currentConfidence,signals:[]});
       }
     }
@@ -1344,7 +1362,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.0.6',
+      version: '4.1.0',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
