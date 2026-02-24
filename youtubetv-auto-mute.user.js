@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.2.4: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.2.5: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.2.4
+// @version      4.2.5
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -1436,7 +1436,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.2.4',
+      version: '4.2.5',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1549,7 +1549,7 @@
   function buildPanel(){
     if(NS.panelEl)return NS.panelEl;
     const panel=document.createElement('div'); NS.panelEl=panel;
-    panel.style.cssText='position:fixed;right:16px;top:16px;z-index:2147483647;width:560px;max-width:95vw;max-height:85vh;background:#111;color:#fff;border:1px solid #333;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.5);font:13px/1.4 system-ui,sans-serif;display:flex;flex-direction:column';
+    panel.style.cssText='position:fixed;right:16px;top:16px;z-index:2147483647;width:560px;max-width:95vw;max-height:85vh;background:#111;color:#fff;border:1px solid #333;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.5);font:13px/1.4 system-ui,sans-serif;display:none;flex-direction:column';
     const btnS='background:#1f6feb;border:none;color:#fff;padding:6px 10px;border-radius:7px;cursor:pointer';
     const inputS='width:100%;box-sizing:border-box;background:#000;color:#fff;border:1px solid #333;border-radius:7px;padding:6px';
     const tabS='background:transparent;border:none;color:#888;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;font:13px system-ui,sans-serif';
@@ -1577,7 +1577,7 @@
         const opts = f.options.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
         tabContent[f.tab] += `<label>${f.label} <select id="${f.id}" style="${inputS}">${opts}</select></label>`;
       } else if (f.type === 'textarea') {
-        tabContent[f.tab] += `<div><div style="margin:6px 0 4px;font-weight:600;">${f.label} (one per line)</div><textarea id="${f.id}" rows="${f.rows}" style="${inputS};font-family:ui-monospace,Menlo,Consolas,monospace;"></textarea></div>`;
+        tabContent[f.tab] += `<div><div style="margin:6px 0 4px;font-weight:600;">${f.label} (one per line)</div><textarea id="${f.id}" rows="${f.rows}" style="${inputS};font-family:ui-monospace,Menlo,Consolas,monospace;max-height:200px;resize:vertical;"></textarea></div>`;
       }
     }
     // Close any remaining open section divs
@@ -1625,7 +1625,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.4 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.5 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1673,10 +1673,10 @@
     panel.querySelector('#import').onchange = (e) => {
       const f = e.target.files?.[0]; if (!f) return;
       const r = new FileReader();
-      r.onload = () => { try { S = { ...DEFAULTS, ...JSON.parse(r.result) }; PhraseIndex.rebuild(S); saveSettings(S); applySettings(true); alert('Imported.'); NS.panelEl.remove(); NS.panelEl = null; buildPanel(); } catch { alert('Invalid file.'); } };
+      r.onload = () => { try { S = { ...DEFAULTS, ...JSON.parse(r.result) }; PhraseIndex.rebuild(S); saveSettings(S); applySettings(true); alert('Imported.'); NS.panelEl.remove(); NS.panelEl = null; togglePanel(); } catch { alert('Invalid file.'); } };
       r.readAsText(f);
     };
-    panel.querySelector('#reset').onclick = () => { if (!confirm('Reset to defaults?')) return; S = { ...DEFAULTS }; PhraseIndex.rebuild(S); saveSettings(S); applySettings(true); NS.panelEl.remove(); NS.panelEl = null; buildPanel(); };
+    panel.querySelector('#reset').onclick = () => { if (!confirm('Reset to defaults?')) return; S = { ...DEFAULTS }; PhraseIndex.rebuild(S); saveSettings(S); applySettings(true); NS.panelEl.remove(); NS.panelEl = null; togglePanel(); };
     panel.querySelector('#clearCache').onclick = () => { if (!confirm('Clear ALL cached data? This removes settings, logs, feedback, and stale entries from old versions. The page will reload with fresh defaults.')) return; const n = kvClearAll(); window._captions_log = []; _feedbackLog = []; log(`Cleared ${n} storage entries`); location.reload(); };
     const _tuneBtn = panel.querySelector('#startTuning');
     if (_tuneBtn) {
@@ -1696,7 +1696,7 @@
     };
     return panel;
   }
-  function togglePanel(){ if(!NS.panelEl)buildPanel(); NS.panelEl.style.display=(NS.panelEl.style.display==='none'?'block':'none'); }
+  function togglePanel(){ if(!NS.panelEl)buildPanel(); NS.panelEl.style.display=(NS.panelEl.style.display==='none'?'flex':'none'); }
   function applySettings(restart=false){ if(NS.hudEl)NS.hudEl.style.transition=`opacity ${S.hudFadeMs|0}ms ease, transform ${S.hudFadeMs|0}ms ease`; if(restart)startLoop(); }
 
   /* ---------- HOTKEYS ---------- */
@@ -1714,5 +1714,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.2.4',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.2.5',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
