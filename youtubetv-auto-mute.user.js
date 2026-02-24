@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.2.11: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.2.13: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.2.11
+// @version      4.2.13
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -781,9 +781,9 @@
       if (S.confidenceMeterStyle === 'bar' || S.confidenceMeterStyle === 'both') {
         const barWidth = 15;
         const filled = Math.round((confidence / 100) * barWidth);
-        _hudRefs.meter.textContent = '\u2588'.repeat(filled) + '\u2591'.repeat(barWidth - filled) + ' ' + confidence + '% [thr:' + thr + ' ' + color + ']';
+        _hudRefs.meter.textContent = '\u2588'.repeat(filled) + '\u2591'.repeat(barWidth - filled) + ' ' + confidence + '%';
       } else {
-        _hudRefs.meter.textContent = confidence + '% [thr:' + thr + ' ' + color + ']';
+        _hudRefs.meter.textContent = confidence + '%';
       }
       _hudRefs.meter.style.color = color;
       _hudRefs.meter.style.display = '';
@@ -1067,9 +1067,12 @@
       const elapsed = t - State.tuningStartMs;
       const lastSnap = State.tuningSnapshots[State.tuningSnapshots.length - 1];
       if (!lastSnap || elapsed - lastSnap.elapsed >= 5000) {
+        const _thr = S.confidenceThreshold;
+        const _hudColor = confidence >= _thr ? '#ff4444' : (confidence >= _thr - 15 ? '#ffcc00' : '#44dd55');
         State.tuningSnapshots.push({
           elapsed, ts: nowStr(), confidence, muted: decision.shouldMute,
           reason: decision.reason,
+          threshold: _thr, hudColor: _hudColor,
           signals: signals.map(s => ({source:s.source, weight:s.weight, match:s.match})),
           caption: truncate(ccText, 200),
           adLock: t < State.adLockUntil,
@@ -1249,6 +1252,8 @@
     const cc=(captionWindow?.textContent||'').trim();
     const wasMuted=State.lastMuteState===true;
 
+    const _flagThr = S.confidenceThreshold;
+    const _flagColor = State.currentConfidence >= _flagThr ? '#ff4444' : (State.currentConfidence >= _flagThr - 15 ? '#ffcc00' : '#44dd55');
     const entry = {
       timestamp: new Date().toISOString(),
       action: wasMuted ? 'FALSE_POSITIVE' : 'FALSE_NEGATIVE',
@@ -1256,6 +1261,7 @@
       captionText: truncate(cc, 200),
       lastNLines: [...State.captionWindow],
       confidence: State.currentConfidence,
+      threshold: _flagThr, hudColor: _flagColor,
       signals: (State.lastSignals || []).map(s => ({
         source: s.source, weight: s.weight, match: s.match
       })),
@@ -1437,7 +1443,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.2.11',
+      version: '4.2.13',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1628,7 +1634,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.11 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.13 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1726,5 +1732,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.2.11',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.2.13',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
