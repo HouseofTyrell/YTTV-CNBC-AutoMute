@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.1.0: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.1.1: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.1.0
+// @version      4.1.1
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -163,7 +163,8 @@
       "if you or a loved one","class action","lawsuit","mesothelioma",
       // Other
       "aarp","whopper","subway","expedia","trivago","indeed","ziprecruiter",
-      "invesco","coventry direct"
+      "invesco","coventry direct",
+      "cdw","vrbo"
     ].join('\n'),
 
     adContext: [
@@ -246,7 +247,7 @@
     ],
   };
 
-  const SETTINGS_KEY='yttp_settings_v3_0';
+  const SETTINGS_KEY='yttp_settings_v4_1';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -298,6 +299,7 @@
     lastCaptionLine: '',
     lastCcSeenMs: 0,
     lastProgramGoodMs: 0,
+    lastStrongProgramMs: 0,
     lastAutoDlMs: Date.now(),
     rafScheduled: false,
     adLockUntil: 0,
@@ -326,6 +328,7 @@
       }
       this.lastCcSeenMs = Date.now();
       this.lastProgramGoodMs = 0;
+      this.lastStrongProgramMs = 0;
       this.adLockUntil = 0;
       this.programVotes = 0;
       this.manualOverrideUntil = 0;
@@ -614,8 +617,19 @@
 
     const lockActive = t < State.adLockUntil;
 
-    const programSignal = signalResults.some(s => s.weight < -5);
-    if (programSignal && !lockActive) {
+    // Strong program signal: anchor, allow, segment, guest intro (not conversational at -8)
+    const strongProgramSignal = signalResults.some(s => s.weight <= -12);
+    if (strongProgramSignal) State.lastStrongProgramMs = t;
+
+    // Caption loss resets stale quorum
+    const hasCaptionLoss = signalResults.some(s => s.source === 'captionLoss');
+    if (hasCaptionLoss) {
+      State.programQuorumCount = 0;
+      State.programVotes = 0;
+      State.lastProgramGoodMs = 0;
+    }
+
+    if (strongProgramSignal && !lockActive) {
       State.programVotes = Math.min(S.programVotesNeeded, State.programVotes + 1);
       State.programQuorumCount = Math.min(S.programQuorumLines, State.programQuorumCount + 1);
       if (!State.lastProgramGoodMs) State.lastProgramGoodMs = t;
@@ -633,7 +647,8 @@
     const votesOK = State.programVotes >= S.programVotesNeeded;
     const quorumOK = State.programQuorumCount >= S.programQuorumLines;
     const timeOK = State.lastProgramGoodMs && (t - State.lastProgramGoodMs >= S.unmuteDebounceMs);
-    if (votesOK && quorumOK && timeOK) return { shouldMute: false, reason: 'PROGRAM_QUORUM_MET' };
+    const quorumFresh = State.lastStrongProgramMs && (t - State.lastStrongProgramMs < 15000);
+    if (votesOK && quorumOK && timeOK && quorumFresh) return { shouldMute: false, reason: 'PROGRAM_QUORUM_MET' };
 
     return { shouldMute: State.lastMuteState === true, reason: 'BUILDING_QUORUM' };
   }
@@ -1362,7 +1377,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.1.0',
+      version: '4.1.1',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
