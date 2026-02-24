@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.3.2: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.3.3: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.3.2
+// @version      4.3.3
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -176,7 +176,8 @@
       "invesco","coventry direct",
       "cdw","vrbo",
       "dexcom","fidelity trader",
-      "shopify","e*trade","etrade"
+      "shopify","e*trade","etrade",
+      "godaddy","ameriprise"
     ].join('\n'),
 
     adContext: [
@@ -202,7 +203,7 @@
       "earnings season","earnings beat","earnings miss","earnings surprise","reported earnings","earnings call",
       "guidance","conference call","analyst","beat estimates","raised guidance",
       "tariff","tariffs","supreme court","breaking news",
-      "economic data","cpi","ppi","jobs report","nonfarm payrolls",
+      "economic data","cpi data","cpi report","cpi number","consumer price","ppi data","ppi report","ppi number","producer price","jobs report","nonfarm payrolls",
       "market breadth","s&p","the nasdaq","nasdaq composite","nasdaq is","nasdaq was","the dow","dow jones","dow industrials","back to you","we're back","we are back","back with",
       "chief investment officer","portfolio manager","senior analyst","ceo","cfo","chair",
       "welcome to closing bell","overtime is back","welcome back",
@@ -260,7 +261,7 @@
     ],
   };
 
-  const SETTINGS_KEY='yttp_settings_v4_3_2';
+  const SETTINGS_KEY='yttp_settings_v4_3_3';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -289,7 +290,7 @@
     GUEST_INTRO: -22,
     SEGMENT_NAME: -18,
     CASE_SHIFT_AD: 28,
-    CASE_SHIFT_PROGRAM: -25,
+    CASE_SHIFT_PROGRAM: -28,
     SPEAKER_MARKER: -15,
     DOM_AD_SHOWING: 45,
     CONVERSATIONAL: -12,
@@ -1039,8 +1040,9 @@
     if (captionsExist) State.lastCcSeenMs = t;
     const noCcMs = t - State.lastCcSeenMs;
 
-    // Clear stale capsRatio history on extended caption loss
-    if (noCcMs > 10000) State.recentCapsRatios = [];
+    // Note: capsRatio history no longer cleared on caption loss —
+    // CAPS_HEAVY suppression uses avg check, and clearing prevented
+    // CASE_SHIFT_PROGRAM from ever firing after ad breaks.
 
     // Pre-compute features for signals
     const textFeatures = TextAnalyzer.analyze(ccText);
@@ -1470,7 +1472,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.3.2',
+      version: '4.3.3',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1657,7 +1659,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.2 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.3 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1753,5 +1755,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.3.2',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.3.3',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
