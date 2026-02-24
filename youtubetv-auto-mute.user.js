@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.2.13: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.3.0: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.2.13
+// @version      4.3.0
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -81,12 +81,9 @@
     useTrueMute:true,
     intervalMs:150,
     debug:true,
-    debugVerboseCC:false,
 
     // Review / tuning
     showTuningUI:true,
-    llmReviewEnabled:false,
-    showFrequentWords:false,
 
     // Caption visibility
     hideCaptions:false,
@@ -125,7 +122,6 @@
     tuningDurationMs:300000, // Tuning session length (5 min default)
 
     captionLogLimit:8000,
-    autoDownloadEveryMin:0,
 
     // --- Phrase sets ---
     // Medicare / benefits: heavily weighted in hard/ad-context
@@ -178,7 +174,8 @@
       // Other
       "aarp","whopper","subway","expedia","trivago","indeed","ziprecruiter",
       "invesco","coventry direct",
-      "cdw","vrbo"
+      "cdw","vrbo",
+      "dexcom","fidelity trader"
     ].join('\n'),
 
     adContext: [
@@ -201,7 +198,8 @@
     // Strong program cues — instant allow override (clear lock + unmute)
     allowPhrases: [
       "joining me now","joins us now","from washington","live in","live at",
-      "earnings","guidance","conference call","analyst","beat estimates","raised guidance",
+      "earnings season","earnings beat","earnings miss","earnings surprise","reported earnings","earnings call",
+      "guidance","conference call","analyst","beat estimates","raised guidance",
       "tariff","tariffs","supreme court","breaking news",
       "economic data","cpi","ppi","jobs report","nonfarm payrolls",
       "market breadth","s&p","the nasdaq","nasdaq composite","nasdaq is","nasdaq was","the dow","dow jones","dow industrials","back to you","we're back","we are back","back with",
@@ -261,7 +259,7 @@
     ],
   };
 
-  const SETTINGS_KEY='yttp_settings_v4_1';
+  const SETTINGS_KEY='yttp_settings_v4_3';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -318,7 +316,6 @@
     lastCcSeenMs: 0,
     lastProgramGoodMs: 0,
     lastStrongProgramMs: 0,
-    lastAutoDlMs: Date.now(),
     rafScheduled: false,
     adLockUntil: 0,
     programVotes: 0,
@@ -673,6 +670,12 @@
     const strongProgramSignal = signalResults.some(s => s.weight <= -12);
     if (strongProgramSignal) State.lastStrongProgramMs = t;
 
+    // Quorum decay on staleness — if no strong program signal in 20s, erode quorum
+    if (State.lastStrongProgramMs && (t - State.lastStrongProgramMs > 20000)) {
+      State.programQuorumCount = Math.max(0, State.programQuorumCount - 1);
+      State.programVotes = Math.max(0, State.programVotes - 1);
+    }
+
     // Caption loss resets stale quorum
     const hasCaptionLoss = signalResults.some(s => s.source === 'captionLoss');
     if (hasCaptionLoss) {
@@ -702,6 +705,7 @@
     const quorumFresh = State.lastStrongProgramMs && (t - State.lastStrongProgramMs < 15000);
     if (votesOK && quorumOK && timeOK && quorumFresh) return { shouldMute: false, reason: 'PROGRAM_QUORUM_MET' };
 
+    if (confidence < WEIGHT.BASE) return { shouldMute: false, reason: 'LOW_CONFIDENCE' };
     return { shouldMute: State.lastMuteState === true, reason: 'BUILDING_QUORUM' };
   }
 
@@ -763,7 +767,7 @@
     }
     _hudBuilt = true;
   }
-  function updateHUDText(t, confidence, signals) {
+  function updateHUDText(t, confidence, signals, isMuted) {
     NS.hudText = t;
     if (!NS.hudEl) return;
     _buildHUDInner();
@@ -772,20 +776,46 @@
     const status = parts[0] || '';
     const reason = parts[1] ? parts[1].replace('Reason: ', '') : '';
 
-    if (_hudRefs.status) _hudRefs.status.textContent = status;
+    if (_hudRefs.status) {
+      _hudRefs.status.textContent = status;
+      _hudRefs.status.style.color = isMuted ? '#ff4444' : '#44dd55';
+    }
     if (_hudRefs.reason) _hudRefs.reason.textContent = reason;
 
     if (S.showConfidenceMeter && _hudRefs.meter) {
       const thr = S.confidenceThreshold;
-      const color = confidence >= thr ? '#ff4444' : (confidence >= thr - 15 ? '#ffcc00' : '#44dd55');
+      const aboveThr = confidence >= thr;
+
       if (S.confidenceMeterStyle === 'bar' || S.confidenceMeterStyle === 'both') {
-        const barWidth = 15;
-        const filled = Math.round((confidence / 100) * barWidth);
-        _hudRefs.meter.textContent = '\u2588'.repeat(filled) + '\u2591'.repeat(barWidth - filled) + ' ' + confidence + '%';
+        const barWidth = 20;
+        const notchPos = Math.min(barWidth - 1, Math.max(0, Math.round(thr / 100 * barWidth)));
+        const filledTotal = Math.round((confidence / 100) * barWidth);
+        let safePart = '', dangerPart = '';
+        for (let i = 0; i < notchPos; i++) safePart += i < filledTotal ? '\u2593' : '\u2591';
+        for (let i = notchPos + 1; i <= barWidth; i++) dangerPart += i < filledTotal ? '\u2588' : '\u2591';
+
+        // Quorum/lock suffix
+        let suffix = '';
+        const lockMs = Math.max(0, State.adLockUntil - Date.now());
+        if (lockMs > 0) {
+          suffix = ' \uD83D\uDD12' + Math.ceil(lockMs / 1000) + 's';
+        } else if (State.programQuorumCount >= S.programQuorumLines) {
+          suffix = ' \u2713' + State.programQuorumCount + '/' + S.programQuorumLines;
+        } else if (State.programQuorumCount > 0 || State.programVotes > 0) {
+          suffix = ' \u27F3' + Math.max(State.programQuorumCount, State.programVotes) + '/' + S.programQuorumLines;
+        }
+
+        const labelColor = aboveThr ? '#ff4444' : '#cccccc';
+        _hudRefs.meter.innerHTML =
+          '<span style="color:#aaa">' + safePart + '</span>' +
+          '<span style="color:#00cccc">\u2502</span>' +
+          '<span style="color:' + (aboveThr ? '#ff4444' : '#555') + '">' + dangerPart + '</span>' +
+          '<span style="color:' + labelColor + '"> ' + confidence + '/' + thr + '</span>' +
+          (suffix ? '<span style="color:#888">' + suffix + '</span>' : '');
       } else {
-        _hudRefs.meter.textContent = confidence + '%';
+        const labelColor = aboveThr ? '#ff4444' : '#cccccc';
+        _hudRefs.meter.innerHTML = '<span style="color:' + labelColor + '">' + confidence + '/' + thr + '</span>';
       }
-      _hudRefs.meter.style.color = color;
       _hudRefs.meter.style.display = '';
     } else if (_hudRefs.meter) {
       _hudRefs.meter.style.display = 'none';
@@ -969,7 +999,8 @@
       (info.match?`Match: "${truncate(info.match, 30)}"\n`:'' )+
       (hudCcSnippet?`CC: "${hudCcSnippet}"`:'' ),
       info.confidence || State.currentConfidence,
-      info.signals
+      info.signals,
+      shouldMute
     );
   }
 
@@ -998,6 +1029,9 @@
     const t = Date.now();
     if (captionsExist) State.lastCcSeenMs = t;
     const noCcMs = t - State.lastCcSeenMs;
+
+    // Clear stale capsRatio history on extended caption loss
+    if (noCcMs > 10000) State.recentCapsRatios = [];
 
     // Pre-compute features for signals
     const textFeatures = TextAnalyzer.analyze(ccText);
@@ -1067,12 +1101,9 @@
       const elapsed = t - State.tuningStartMs;
       const lastSnap = State.tuningSnapshots[State.tuningSnapshots.length - 1];
       if (!lastSnap || elapsed - lastSnap.elapsed >= 5000) {
-        const _thr = S.confidenceThreshold;
-        const _hudColor = confidence >= _thr ? '#ff4444' : (confidence >= _thr - 15 ? '#ffcc00' : '#44dd55');
         State.tuningSnapshots.push({
           elapsed, ts: nowStr(), confidence, muted: decision.shouldMute,
           reason: decision.reason,
-          threshold: _thr, hudColor: _hudColor,
           signals: signals.map(s => ({source:s.source, weight:s.weight, match:s.match})),
           caption: truncate(ccText, 200),
           adLock: t < State.adLockUntil,
@@ -1084,7 +1115,7 @@
 
   function tick(){
     const {video,captionWindow}=detectNodes();
-    if(!video){ if(State.videoRef)log('Video disappeared; waiting…'); State.videoRef=null; updateHUDText('Waiting for player…',0); return; }
+    if(!video){ if(State.videoRef)log('Video disappeared; waiting…'); State.videoRef=null; updateHUDText('Waiting for player…',0,[],false); return; }
     if(!State.videoRef){
       State.videoRef=video; log('Player found. Ready.');
       State.reset(false);
@@ -1112,11 +1143,6 @@
       captionsBottomed=!!(b && b!=='auto' && b!=='');
     }
 
-    if(S.debugVerboseCC){
-      const captionSegment=document.querySelector('span.ytp-caption-segment')||document.querySelector('.ytp-caption-segment');
-      const seg=captionSegment?.textContent;
-      if(seg && seg!==State.lastCaptionLine){ State.lastCaptionLine=seg; console.log('[YTTV-Mute] CC:',seg); }
-    }
     if(ccText && ccText!==State.lastCaptionLine){
       State.lastCaptionLine=ccText;
       pushCaption(ccText);
@@ -1129,11 +1155,6 @@
       if(State.recentCapsRatios.length > 8) State.recentCapsRatios.shift();
     }
 
-    if(S.autoDownloadEveryMin>0){
-      const since=(Date.now()-State.lastAutoDlMs)/60000;
-      if(since>=S.autoDownloadEveryMin){ State.lastAutoDlMs=Date.now(); downloadCaptionsNow(); }
-    }
-
     evaluate(video,ccText,captionsExist,captionsBottomed);
   }
 
@@ -1143,7 +1164,7 @@
     log('Loop started. INTERVAL_MS:',S.intervalMs,'URL:',location.href);
     ensureHUD();
     ensureSettingsButton();
-    if(S.showHUD){hudFadeTo(true);updateHUDText('Initializing…',0);}
+    if(S.showHUD){hudFadeTo(true);updateHUDText('Initializing…',0,[],false);}
     else {hudFadeTo(false);}
     ensureControlButtons();
   }
@@ -1252,8 +1273,6 @@
     const cc=(captionWindow?.textContent||'').trim();
     const wasMuted=State.lastMuteState===true;
 
-    const _flagThr = S.confidenceThreshold;
-    const _flagColor = State.currentConfidence >= _flagThr ? '#ff4444' : (State.currentConfidence >= _flagThr - 15 ? '#ffcc00' : '#44dd55');
     const entry = {
       timestamp: new Date().toISOString(),
       action: wasMuted ? 'FALSE_POSITIVE' : 'FALSE_NEGATIVE',
@@ -1261,7 +1280,6 @@
       captionText: truncate(cc, 200),
       lastNLines: [...State.captionWindow],
       confidence: State.currentConfidence,
-      threshold: _flagThr, hudColor: _flagColor,
       signals: (State.lastSignals || []).map(s => ({
         source: s.source, weight: s.weight, match: s.match
       })),
@@ -1443,7 +1461,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.2.13',
+      version: '4.3.0',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1484,10 +1502,7 @@
     // General tab
     { id: 'useTrueMute', tab: 'general', type: 'checkbox', label: 'True mute (vs low volume)' },
     { id: 'debug', tab: 'general', type: 'checkbox', label: 'Console debug logging' },
-    { id: 'debugVerboseCC', tab: 'general', type: 'checkbox', label: 'Verbose CC debug' },
     { id: 'showTuningUI', tab: 'general', type: 'checkbox', label: 'Show tuning session button', section: 'Debug / Tuning' },
-    { id: 'llmReviewEnabled', tab: 'general', type: 'checkbox', label: 'Enable LLM Review', section: 'Review Features' },
-    { id: 'showFrequentWords', tab: 'general', type: 'checkbox', label: 'Show Frequent Words' },
     { id: 'hideCaptions', tab: 'general', type: 'checkbox', label: 'Hide captions from view', section: 'Caption Display' },
     // HUD tab
     { id: 'showHUD', tab: 'hud', type: 'checkbox', label: 'Show HUD always' },
@@ -1610,7 +1625,6 @@
       </div>
       <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
         <div style="font-weight:600;font-size:13px;">Caption Logging</div>
-        <label>Auto-download every N minutes (0=off) <input id="autoDownloadEveryMin" type="number" min="0" max="360" style="${inputS}"></label>
         <label>Caption log limit (lines) <input id="captionLogLimit" type="number" min="200" max="50000" style="${inputS}"></label>
       </div>
       <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
@@ -1634,7 +1648,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.13 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.0 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1657,7 +1671,6 @@
 
     // Populate fields
     populatePanel(panel, S);
-    panel.querySelector('#autoDownloadEveryMin').value = S.autoDownloadEveryMin;
     panel.querySelector('#captionLogLimit').value = S.captionLogLimit;
 
     // Range slider live update
@@ -1686,7 +1699,7 @@
       r.readAsText(f);
     };
     panel.querySelector('#refreshDetection').onclick = () => {
-      const USER_PREFS = ['useTrueMute','debug','debugVerboseCC','showTuningUI','llmReviewEnabled','showFrequentWords','hideCaptions','showHUD','hudAutoOnMute','showConfidenceMeter','showHudSlider','confidenceMeterStyle','confidenceThreshold','hudAutoDelayMs','hudFadeMs','hudSlidePx','captionLogLimit','autoDownloadEveryMin','volumeRampMs'];
+      const USER_PREFS = ['useTrueMute','debug','showTuningUI','hideCaptions','showHUD','hudAutoOnMute','showConfidenceMeter','showHudSlider','confidenceMeterStyle','confidenceThreshold','hudAutoDelayMs','hudFadeMs','hudSlidePx','captionLogLimit','volumeRampMs'];
       const preserved = {};
       USER_PREFS.forEach(k => { if (k in S) preserved[k] = S[k]; });
       S = { ...DEFAULTS, ...preserved };
@@ -1704,7 +1717,6 @@
     }
     panel.querySelector('#yttp-save').onclick = () => {
       Object.assign(S, readPanel(panel));
-      S.autoDownloadEveryMin = clampInt(panel.querySelector('#autoDownloadEveryMin').value, 0, 360, DEFAULTS.autoDownloadEveryMin);
       S.captionLogLimit = clampInt(panel.querySelector('#captionLogLimit').value, 200, 50000, DEFAULTS.captionLogLimit);
       PhraseIndex.rebuild(S);
       saveSettings(S);
@@ -1732,5 +1744,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.2.13',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.3.0',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
