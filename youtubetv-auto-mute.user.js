@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.2.3: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.2.4: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.2.3
+// @version      4.2.4
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -10,6 +10,8 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_download
+// @grant        GM_listValues
+// @grant        GM_deleteValue
 // @run-at       document-start
 // @license      MIT
 // @noframes
@@ -37,8 +39,20 @@
   const hasGM_get = typeof GM_getValue==='function';
   const hasGM_set = typeof GM_setValue==='function';
   const hasGM_dl  = typeof GM_download==='function';
+  const hasGM_list = typeof GM_listValues==='function';
+  const hasGM_del  = typeof GM_deleteValue==='function';
   const kvGet=(k,d)=>{try{if(hasGM_get)return GM_getValue(k,d);const r=localStorage.getItem('yttp__'+k);return r?JSON.parse(r):d;}catch{return d;}};
   const kvSet=(k,v)=>{try{if(hasGM_set)return GM_setValue(k,v);localStorage.setItem('yttp__'+k,JSON.stringify(v));}catch{}};
+  const kvClearAll=()=>{
+    let count=0;
+    // Clear GM storage
+    if(hasGM_list&&hasGM_del){try{const keys=GM_listValues();keys.forEach(k=>{GM_deleteValue(k);count++;});}catch{}}
+    // Clear localStorage entries with yttp__ prefix
+    const toRemove=[];
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('yttp__'))toRemove.push(k);}
+    toRemove.forEach(k=>{localStorage.removeItem(k);count++;});
+    return count;
+  };
   const downloadText=(name,text)=>{
     try{if(hasGM_dl){const url='data:text/plain;charset=utf-8,'+encodeURIComponent(text);GM_download({url,name,saveAs:false});return;}}catch{}
     const blob=new Blob([text],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);
@@ -1422,7 +1436,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.2.3',
+      version: '4.2.4',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1597,6 +1611,8 @@
         ${menuBtn('export','Export Settings to File','')}
         <label style="${btnS};display:flex;justify-content:center;align-items:center;position:relative;overflow:hidden;">Import Settings<input id="import" type="file" accept="application/json" style="opacity:0;position:absolute;left:0;top:0;width:100%;height:100%;cursor:pointer;"></label>
         ${menuBtn('reset','Reset All to Defaults','','#444')}
+        ${menuBtn('clearCache','Clear All Cache (Remove Stale Data)','','#8b0000')}
+        <div style="font-size:11px;color:#888;margin-top:-4px;">Removes all stored data (settings, logs, feedback) including stale entries from old versions. Script will reload with fresh defaults.</div>
       </div>`;
 
     const tabBar = tabNames.map((tn,i) =>
@@ -1609,7 +1625,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.3 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.2.4 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1661,6 +1677,7 @@
       r.readAsText(f);
     };
     panel.querySelector('#reset').onclick = () => { if (!confirm('Reset to defaults?')) return; S = { ...DEFAULTS }; PhraseIndex.rebuild(S); saveSettings(S); applySettings(true); NS.panelEl.remove(); NS.panelEl = null; buildPanel(); };
+    panel.querySelector('#clearCache').onclick = () => { if (!confirm('Clear ALL cached data? This removes settings, logs, feedback, and stale entries from old versions. The page will reload with fresh defaults.')) return; const n = kvClearAll(); window._captions_log = []; _feedbackLog = []; log(`Cleared ${n} storage entries`); location.reload(); };
     const _tuneBtn = panel.querySelector('#startTuning');
     if (_tuneBtn) {
       const _tuneLbl = _tuneBtn.querySelector('span');
@@ -1697,5 +1714,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.2.3',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.2.4',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
