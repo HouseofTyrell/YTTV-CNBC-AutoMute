@@ -177,7 +177,7 @@
       "cdw","vrbo",
       "dexcom","fidelity trader",
       "shopify","e*trade","etrade",
-      "godaddy","ameriprise"
+      "godaddy","ameriprise","noom"
     ].join('\n'),
 
     adContext: [
@@ -194,7 +194,7 @@
       "prospectus","gps voice","rerouting"
     ].join('\n'),
 
-    ctaTerms: ["apply","sign up","join now","call","visit","learn more","enroll","enrollment","get started","download","claim","see details","speak to an agent","licensed agent"],
+    ctaTerms: ["apply","sign up","join now","call us","visit","learn more","enroll","enrollment","get started","download","claim","see details","speak to an agent","licensed agent"],
     offerTerms: ["policy for only","only $","per month","per mo","per year","limited time","guarantee","guaranteed","get a quote","$0 premium","$0 copay","allowance","benefits card","prepaid card","over-the-counter"],
 
     // Strong program cues — instant allow override (clear lock + unmute)
@@ -331,6 +331,7 @@
     captionWindow: [],
     lastSignals: [],
     recentCapsRatios: [],  // last N capsRatios for case shift detection
+    _lastCapsText: '',
     tuningActive: false,
     tuningStartMs: 0,
     tuningEndMs: 0,
@@ -357,6 +358,7 @@
       this.currentConfidence = 0;
       this.captionWindow = [];
       this.recentCapsRatios = [];
+      this._lastCapsText = '';
     }
   };
 
@@ -1160,13 +1162,25 @@
       // Sliding caption window
       State.captionWindow.push(ccText);
       if(State.captionWindow.length > S.captionWindowSize) State.captionWindow.shift();
-      // Track capsRatio history for case shift detection
-      const _cr = TextAnalyzer.analyze(ccText).capsRatio;
-      State.recentCapsRatios.push(_cr);
-      if(State.recentCapsRatios.length > 8) State.recentCapsRatios.shift();
+      // Compute capsRatio for case shift detection — push AFTER evaluate()
+      // so the current line doesn't contaminate its own history check.
+      // Only push on substantial text changes — CNBC builds captions char by char,
+      // which floods the buffer and makes case transitions invisible.
+      const _prevCapsText = State._lastCapsText || '';
+      const _capsSubstantial = !_prevCapsText || ccText.length < _prevCapsText.length * 0.7
+        || !ccText.startsWith(_prevCapsText.slice(0, Math.min(20, _prevCapsText.length)));
+      if (_capsSubstantial) State._pendingCapsRatio = TextAnalyzer.analyze(ccText).capsRatio;
     }
 
     evaluate(video,ccText,captionsExist,captionsBottomed);
+
+    // Push capsRatio after evaluate so caseShift compares current vs prior history
+    if (State._pendingCapsRatio !== undefined) {
+      State.recentCapsRatios.push(State._pendingCapsRatio);
+      if (State.recentCapsRatios.length > 12) State.recentCapsRatios.shift();
+      State._lastCapsText = State.lastCaptionLine;
+      delete State._pendingCapsRatio;
+    }
   }
 
   function startLoop(){
