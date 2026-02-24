@@ -1243,11 +1243,15 @@
       '</div>';
     overlay.appendChild(dialog);
     document.documentElement.appendChild(overlay);
-    dialog.querySelector('#yttp-tuning-dl').onclick = () => {
+    const dlBtn = dialog.querySelector('#yttp-tuning-dl');
+    dlBtn.onclick = () => {
       const hadAds = (dialog.querySelector('input[name="yttp-had-ads"]:checked') || {}).value || 'unsure';
       const errorLoc = (dialog.querySelector('input[name="yttp-error-loc"]:checked') || {}).value || 'none';
       const notes = (dialog.querySelector('#yttp-tuning-notes') || {}).value || '';
       downloadTuningReport(hadAds, errorLoc, notes);
+      dlBtn.textContent = 'Downloaded!';
+      dlBtn.style.background = '#238636';
+      setTimeout(() => overlay.remove(), 1500);
     };
     dialog.querySelector('#yttp-tuning-close').onclick = () => overlay.remove();
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
