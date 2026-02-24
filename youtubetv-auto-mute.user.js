@@ -802,14 +802,18 @@
 
   function applyMute(video, shouldMute) {
     if (!video) return;
-    // Cancel any active ramp
-    if (_rampTimer) { cancelAnimationFrame(_rampTimer); _rampTimer = null; }
 
     if (shouldMute) {
+      // Cancel any active ramp when muting
+      if (_rampTimer) { cancelAnimationFrame(_rampTimer); _rampTimer = null; }
       if (S.useTrueMute) { video.muted = true; }
       else { video.volume = 0.01; }
       return;
     }
+
+    // Already unmuted — let any active ramp continue, don't restart
+    if (_rampTimer) return;
+    if (!video.muted && video.volume > 0.1) return;
 
     // Unmute with optional ramp
     if (S.volumeRampMs <= 0 || !S.useTrueMute) {
@@ -818,11 +822,11 @@
       return;
     }
 
-    // Ramp: unmute at low volume, then ease-in ramp up
+    // Ramp: set volume to 0 BEFORE unmuting to prevent pop
+    video.volume = 0;
     video.muted = false;
-    video.volume = 0.05;
     const startTime = performance.now();
-    const startVol = 0.05;
+    const startVol = 0;
     const endVol = _rampTargetVolume || 1.0;
     const duration = S.volumeRampMs;
 
@@ -834,6 +838,7 @@
         return;
       }
       const progress = elapsed / duration;
+      // ease-in quadratic: starts slow, accelerates
       video.volume = startVol + (endVol - startVol) * (progress * progress);
       _rampTimer = requestAnimationFrame(step);
     }
@@ -852,8 +857,8 @@
 
     const changed=(State.lastMuteState!==shouldMute);
 
-    // Save volume before muting for ramp target
-    if (shouldMute && !State.lastMuteState && video.volume > 0.05) {
+    // Save volume before muting for ramp target — only from steady state, not mid-ramp
+    if (shouldMute && !State.lastMuteState && !_rampTimer && video.volume > 0.1) {
       _rampTargetVolume = video.volume;
     }
     applyMute(video, shouldMute);
