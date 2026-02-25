@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.3.8: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.3.9: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.3.8
+// @version      4.3.9
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -673,7 +673,6 @@
   function decide(confidence, signalResults) {
     const t = Date.now();
 
-    if (State.manualMuteActive) return { shouldMute: true, reason: 'MANUAL_MUTE' };
     if (!State.enabled) return { shouldMute: false, reason: 'DISABLED' };
     if (t < State.manualOverrideUntil) return { shouldMute: false, reason: 'MANUAL_OVERRIDE' };
 
@@ -685,6 +684,7 @@
       State.adLockUntil = 0;
       State.programVotes = S.programVotesNeeded;
       State.programQuorumCount = S.programQuorumLines;
+      if (State.manualMuteActive) return { shouldMute: true, reason: 'MANUAL_MUTE', virtualReason: 'PROGRAM_CONFIRMED' };
       return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
     }
     if (hasProgramAllow) {
@@ -695,6 +695,7 @@
         State.adLockUntil = 0;
         State.programVotes = S.programVotesNeeded;
         State.programQuorumCount = S.programQuorumLines;
+        if (State.manualMuteActive) return { shouldMute: true, reason: 'MANUAL_MUTE', virtualReason: 'PROGRAM_CONFIRMED' };
         return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
       }
     }
@@ -743,6 +744,24 @@
       State.programQuorumCount = 0;
       State.programVotes = 0;
       State.lastProgramGoodMs = 0;
+    }
+
+    // Manual mute: state machine has fully updated above, now override the output.
+    // Log the "virtual" reason so passive logs capture what would have happened.
+    if (State.manualMuteActive) {
+      let virtualReason = 'LOW_CONFIDENCE';
+      if (lockActive && meetsThreshold) virtualReason = 'AD_LOCK';
+      else if (lockActive) virtualReason = 'AD_LOCK_FADING';
+      else if (meetsThreshold) virtualReason = 'CONFIDENCE_HIGH';
+      else {
+        const votesOK = State.programVotes >= S.programVotesNeeded;
+        const quorumOK = State.programQuorumCount >= S.programQuorumLines;
+        const timeOK = State.lastProgramGoodMs && (t - State.lastProgramGoodMs >= S.unmuteDebounceMs);
+        const quorumFresh = State.lastStrongProgramMs && (t - State.lastStrongProgramMs < 15000);
+        if (votesOK && quorumOK && timeOK && quorumFresh) virtualReason = 'PROGRAM_QUORUM_MET';
+        else if (confidence >= S.confidenceThreshold - 10) virtualReason = 'BUILDING_QUORUM';
+      }
+      return { shouldMute: true, reason: 'MANUAL_MUTE', virtualReason };
     }
 
     if (lockActive && meetsThreshold) return { shouldMute: true, reason: 'AD_LOCK' };
@@ -979,7 +998,7 @@
   }
 
   function passiveSnapshot(confidence, decision, signals, ccText) {
-    passiveLogPush({
+    const rec = {
       conf: confidence,
       muted: decision.shouldMute,
       reason: decision.reason,
@@ -988,11 +1007,13 @@
       adLock: Date.now() < State.adLockUntil,
       quorum: State.programQuorumCount,
       pv: State.programVotes,
-    });
+    };
+    if (decision.virtualReason) rec.vr = decision.virtualReason;
+    passiveLogPush(rec);
   }
 
   function passiveTransition(type, confidence, decision, signals, ccText) {
-    passiveLogPush({
+    const rec = {
       event: type,
       conf: confidence,
       muted: decision.shouldMute,
@@ -1002,7 +1023,9 @@
       adLock: Date.now() < State.adLockUntil,
       quorum: State.programQuorumCount,
       pv: State.programVotes,
-    });
+    };
+    if (decision.virtualReason) rec.vr = decision.virtualReason;
+    passiveLogPush(rec);
   }
 
   function passiveEvent(eventName, extra) {
@@ -1018,7 +1041,7 @@
       _passiveFlushTimer = null;
       if (_passiveDirty) {
         kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.8' });
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.9' });
         _passiveDirty = false;
       }
     }, 10000);
@@ -1070,7 +1093,7 @@
       .filter(r => r.event === 'boundary')
       .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
     const report = {
-      version: '4.3.8',
+      version: '4.3.9',
       format: 'passive_log',
       sessionStart: new Date(State.passiveSessionStart).toISOString(),
       savedAt: new Date().toISOString(),
@@ -1727,7 +1750,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.3.8',
+      version: '4.3.9',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1917,7 +1940,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.8 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.9 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -2022,7 +2045,7 @@
       State.passiveSessionStart = Date.now();
       State.passiveLog = [];
     }
-    passiveEvent('session_start', { version: '4.3.8', url: location.href });
+    passiveEvent('session_start', { version: '4.3.9', url: location.href });
     schedulePassiveFlush();
   }
   startPassiveSaveTimer();
@@ -2032,9 +2055,9 @@
     if (S.passiveLogging) {
       passiveEvent('session_end');
       kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.8' });
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.9' });
       passiveAutoSave();
     }
   });
-  log('Booted v4.3.8',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.3.9',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();

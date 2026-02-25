@@ -54,11 +54,21 @@ Flags are **ground truth** — the user explicitly said "this is wrong." Soft fl
 
 **Session lifecycle**:
 ```json
-{ "event": "session_start", "t": ..., "ts": ..., "version": "4.3.7", "url": "https://tv.youtube.com/watch/..." }
+{ "event": "session_start", "t": ..., "ts": ..., "version": "4.3.9", "url": "https://tv.youtube.com/watch/..." }
 { "event": "session_end", "t": ..., "ts": ... }
 { "event": "manual_mute_on", "t": ..., "ts": ... }
 { "event": "manual_mute_off", "t": ..., "ts": ... }
 ```
+
+### Virtual Reason (v4.3.9+)
+
+During manual mute, the state machine runs fully (ad lock, quorum, programVotes all update). Snapshots include a `"vr"` (virtual reason) field showing what the decision engine *would have* decided:
+
+```json
+{ "t": ..., "ts": "11:33:44", "conf": 94, "muted": true, "reason": "MANUAL_MUTE", "vr": "AD_LOCK", "signals": [...], "adLock": true, "quorum": 0, "pv": 0 }
+```
+
+Use `vr` instead of `reason` when analyzing manual mute periods. Prior to v4.3.9, manual mute snapshots had frozen state (quorum=3, pv=2 perpetually) and are unreliable for state-machine analysis.
 
 ## Analysis Procedure
 
