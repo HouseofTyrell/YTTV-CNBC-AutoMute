@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.3.7: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.3.8: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.3.7
+// @version      4.3.8
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -155,7 +155,7 @@
 
     brandTerms: [
       // Telecom
-      "capital one","t-mobile","tmobile","verizon","at&t","comcast","xfinity",
+      "capital one","t-mobile","tmobile","verizon","at&t","comcast","comcast business","xfinity",
       // Insurance
       "liberty mutual","progressive","geico","state farm","allstate","nationwide","usaa","farmers","travelers",
       // Pharma
@@ -268,7 +268,7 @@
     ],
   };
 
-  const SETTINGS_KEY='yttp_settings_v4_3_7';
+  const SETTINGS_KEY='yttp_settings_v4_3_8';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -553,10 +553,12 @@
     if (f.capsRatio > 0.95 && !(_hist.length >= 3 && _avgCaps > 0.85)) { w += WEIGHT.CAPS_HEAVY; parts.push('caps'); }
     if (f.punctDensity > 0.05) { w += WEIGHT.PUNCT_HEAVY; parts.push('punct'); }
     // Suppress price signal on financial news — dollar amounts are normal on CNBC
+    const recentProgram = State.lastStrongProgramMs && (Date.now() - State.lastStrongProgramMs < 45000);
     if (f.priceCount > 0) {
-      const recentProgram = State.lastStrongProgramMs && (Date.now() - State.lastStrongProgramMs < 30000);
       if (!recentProgram) { w += f.priceCount * WEIGHT.PRICE_MENTION; parts.push('price'); }
     }
+    // Cap total textFeatures weight during confirmed program content
+    if (recentProgram && w > 12) { w = 12; parts.push('dampened'); }
     return w > 0 ? { weight: w, label: 'Text features: ' + parts.join('+'), match: null } : null;
   });
 
@@ -686,10 +688,15 @@
       return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
     }
     if (hasProgramAllow) {
-      State.adLockUntil = 0;
-      State.programVotes = S.programVotesNeeded;
-      State.programQuorumCount = S.programQuorumLines;
-      return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
+      // Suppress programAllow when brandDetected also fires — avoids false unmute
+      // on ads from parent companies (e.g., "Comcast Business" matching "comcast" brand)
+      const hasBrand = signalResults.some(s => s.source === 'brandDetected');
+      if (!hasBrand) {
+        State.adLockUntil = 0;
+        State.programVotes = S.programVotesNeeded;
+        State.programQuorumCount = S.programQuorumLines;
+        return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
+      }
     }
 
     if (meetsThreshold && confidence >= 82) {
@@ -1011,7 +1018,7 @@
       _passiveFlushTimer = null;
       if (_passiveDirty) {
         kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.7' });
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.8' });
         _passiveDirty = false;
       }
     }, 10000);
@@ -1045,7 +1052,7 @@
     }
 
     if (next !== prev) {
-      if (t - State.passiveBoundaryLastChangeMs < 5000) return;
+      if (t - State.passiveBoundaryLastChangeMs < 15000) return;
       State.passiveBoundaryState = next;
       State.passiveBoundaryLastChangeMs = t;
       passiveLogPush({
@@ -1063,7 +1070,7 @@
       .filter(r => r.event === 'boundary')
       .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
     const report = {
-      version: '4.3.7',
+      version: '4.3.8',
       format: 'passive_log',
       sessionStart: new Date(State.passiveSessionStart).toISOString(),
       savedAt: new Date().toISOString(),
@@ -1078,9 +1085,10 @@
       entries: State.passiveLog,
       boundaries,
     };
-    const d = new Date(State.passiveSessionStart);
     const pad = n => String(n).padStart(2, '0');
-    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+    const d = new Date(State.passiveSessionStart);
+    const n = new Date();
+    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}.json`;
     downloadText(name, JSON.stringify(report, null, 2));
     log('Passive log auto-saved:', name, `(${State.passiveLog.length} entries)`);
   }
@@ -1275,6 +1283,15 @@
         signals = signalsWindow;
         confidence = confWindow;
       }
+    }
+
+    // Dampen caseShift→program when ad signals (adContext/ctaDetected) are also present
+    // ALL CAPS ads (e.g., Coventry Direct) look like CNBC program to caseShift
+    const csIdx = signals.findIndex(s => s.source === 'caseShift' && s.weight < 0);
+    if (csIdx !== -1 && signals.some(s => s.source === 'adContext' || s.source === 'ctaDetected')) {
+      const halved = Math.round(signals[csIdx].weight / 2);
+      signals[csIdx] = { ...signals[csIdx], weight: halved, label: signals[csIdx].label + ' (dampened)' };
+      confidence = calculateConfidence(signals);
     }
 
     // Clear stale window on break cue to prevent lingering program phrases
@@ -1710,7 +1727,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.3.7',
+      version: '4.3.8',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1900,7 +1917,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.7 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.8 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -2005,7 +2022,7 @@
       State.passiveSessionStart = Date.now();
       State.passiveLog = [];
     }
-    passiveEvent('session_start', { version: '4.3.7', url: location.href });
+    passiveEvent('session_start', { version: '4.3.8', url: location.href });
     schedulePassiveFlush();
   }
   startPassiveSaveTimer();
@@ -2015,9 +2032,9 @@
     if (S.passiveLogging) {
       passiveEvent('session_end');
       kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.7' });
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.8' });
       passiveAutoSave();
     }
   });
-  log('Booted v4.3.7',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.3.8',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
