@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.3.6: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.3.7: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.3.6
+// @version      4.3.7
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -122,6 +122,12 @@
     tuningDurationMs:300000, // Tuning session length (5 min default)
 
     captionLogLimit:8000,
+
+    // Passive logging
+    passiveLogging:true,
+    passiveLogIntervalMs:5000,
+    passiveSaveIntervalMs:900000, // 15 min
+    passiveLogCapacity:2500,
 
     // --- Phrase sets ---
     // Medicare / benefits: heavily weighted in hard/ad-context
@@ -262,7 +268,7 @@
     ],
   };
 
-  const SETTINGS_KEY='yttp_settings_v4_3_5';
+  const SETTINGS_KEY='yttp_settings_v4_3_7';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -339,6 +345,13 @@
     tuningSnapshots: [],
     tuningFlags: [],
     tuningLogStartIdx: 0,
+    // Passive logging
+    passiveLog: [],
+    passiveSessionStart: 0,
+    passiveLastSnapshotMs: 0,
+    passiveSaveTimer: null,
+    passiveBoundaryState: 'program', // 'program' or 'ad'
+    passiveBoundaryLastChangeMs: 0,
 
     reset(full = false) {
       if (full) {
@@ -901,6 +914,7 @@
       btn.textContent = State.manualMuteActive ? '🔇' : '🔊';
       btn.style.background = State.manualMuteActive ? '#8b0000' : '#444';
       btn.title = State.manualMuteActive ? 'Manual Mute Active (Click to Unmute)' : 'Manual Mute Toggle';
+      if (S.passiveLogging) { passiveEvent(State.manualMuteActive ? 'manual_mute_on' : 'manual_mute_off'); schedulePassiveFlush(); }
       log(`Manual mute ${State.manualMuteActive?'ENABLED':'DISABLED'}`);
       scheduleImmediateCheck();
     });
@@ -935,6 +949,153 @@
     const pad=n=>String(n).padStart(2,'0'),d=new Date();
     const name=`youtubetv_captions_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.txt`;
     downloadText(name,window._captions_log.join('\n')||'(no captions logged yet)');
+  }
+
+  /* ---------- PASSIVE LOG ---------- */
+  const PASSIVE_LOG_KEY = 'yttp_passive_log';
+  const PASSIVE_META_KEY = 'yttp_passive_meta';
+
+  // Load persisted passive log
+  const _loadedPassive = kvGet(PASSIVE_LOG_KEY, []);
+  if (Array.isArray(_loadedPassive)) State.passiveLog = _loadedPassive;
+  const _passiveMeta = kvGet(PASSIVE_META_KEY, {});
+  State.passiveSessionStart = _passiveMeta.sessionStart || Date.now();
+
+  function passiveLogPush(record) {
+    if (!S.passiveLogging) return;
+    record.t = Date.now();
+    record.ts = nowStr();
+    State.passiveLog.push(record);
+    if (State.passiveLog.length > S.passiveLogCapacity * 1.25) {
+      State.passiveLog = State.passiveLog.slice(-S.passiveLogCapacity);
+    }
+  }
+
+  function passiveSnapshot(confidence, decision, signals, ccText) {
+    passiveLogPush({
+      conf: confidence,
+      muted: decision.shouldMute,
+      reason: decision.reason,
+      signals: signals.map(s => ({ s: s.source, w: s.weight, m: s.match || undefined })),
+      caption: truncate(ccText, 200),
+      adLock: Date.now() < State.adLockUntil,
+      quorum: State.programQuorumCount,
+      pv: State.programVotes,
+    });
+  }
+
+  function passiveTransition(type, confidence, decision, signals, ccText) {
+    passiveLogPush({
+      event: type,
+      conf: confidence,
+      muted: decision.shouldMute,
+      reason: decision.reason,
+      signals: signals.map(s => ({ s: s.source, w: s.weight, m: s.match || undefined })),
+      caption: truncate(ccText, 200),
+      adLock: Date.now() < State.adLockUntil,
+      quorum: State.programQuorumCount,
+      pv: State.programVotes,
+    });
+  }
+
+  function passiveEvent(eventName, extra) {
+    passiveLogPush({ event: eventName, ...extra });
+  }
+
+  let _passiveDirty = false;
+  let _passiveFlushTimer = null;
+  function schedulePassiveFlush() {
+    _passiveDirty = true;
+    if (_passiveFlushTimer) return;
+    _passiveFlushTimer = setTimeout(() => {
+      _passiveFlushTimer = null;
+      if (_passiveDirty) {
+        kvSet(PASSIVE_LOG_KEY, State.passiveLog);
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.7' });
+        _passiveDirty = false;
+      }
+    }, 10000);
+  }
+
+  function passiveBoundaryCheck(confidence, decision, signals) {
+    if (!S.passiveLogging) return;
+    const t = Date.now();
+    const prev = State.passiveBoundaryState;
+    let next = prev;
+    let trigger = null;
+
+    if (prev === 'program') {
+      if (decision.reason === 'CONFIDENCE_HIGH' && confidence >= S.confidenceThreshold) {
+        next = 'ad'; trigger = 'confidence_crossed';
+      } else if (decision.reason === 'AD_LOCK') {
+        next = 'ad'; trigger = 'ad_lock_engaged';
+      } else if (signals.some(s => s.source === 'domAdShowing')) {
+        next = 'ad'; trigger = 'dom_ad_showing';
+      } else if (signals.some(s => s.source === 'captionLoss' && s.weight >= 15)) {
+        next = 'ad'; trigger = 'caption_loss';
+      }
+    } else {
+      if (decision.reason === 'PROGRAM_CONFIRMED') {
+        next = 'program'; trigger = 'program_confirmed';
+      } else if (decision.reason === 'PROGRAM_QUORUM_MET') {
+        next = 'program'; trigger = 'program_quorum_met';
+      } else if (signals.some(s => s.source === 'caseShift' && s.weight < 0)) {
+        next = 'program'; trigger = 'case_shift_program';
+      }
+    }
+
+    if (next !== prev) {
+      if (t - State.passiveBoundaryLastChangeMs < 5000) return;
+      State.passiveBoundaryState = next;
+      State.passiveBoundaryLastChangeMs = t;
+      passiveLogPush({
+        event: 'boundary',
+        type: next === 'ad' ? 'ad_start' : 'ad_end',
+        trigger,
+        conf: confidence,
+      });
+    }
+  }
+
+  function passiveAutoSave() {
+    if (!S.passiveLogging || State.passiveLog.length === 0) return;
+    const boundaries = State.passiveLog
+      .filter(r => r.event === 'boundary')
+      .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
+    const report = {
+      version: '4.3.7',
+      format: 'passive_log',
+      sessionStart: new Date(State.passiveSessionStart).toISOString(),
+      savedAt: new Date().toISOString(),
+      settings: {
+        confidenceThreshold: S.confidenceThreshold,
+        minAdLockMs: S.minAdLockMs,
+        muteOnNoCCDelayMs: S.muteOnNoCCDelayMs,
+        programVotesNeeded: S.programVotesNeeded,
+        programQuorumLines: S.programQuorumLines,
+        captionWindowSize: S.captionWindowSize,
+      },
+      entries: State.passiveLog,
+      boundaries,
+    };
+    const d = new Date(State.passiveSessionStart);
+    const pad = n => String(n).padStart(2, '0');
+    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+    downloadText(name, JSON.stringify(report, null, 2));
+    log('Passive log auto-saved:', name, `(${State.passiveLog.length} entries)`);
+  }
+
+  function startPassiveSaveTimer() {
+    stopPassiveSaveTimer();
+    if (!S.passiveLogging) return;
+    State.passiveSaveTimer = setInterval(passiveAutoSave, S.passiveSaveIntervalMs);
+  }
+
+  function stopPassiveSaveTimer() {
+    if (State.passiveSaveTimer) {
+      clearInterval(State.passiveSaveTimer);
+      State.passiveSaveTimer = null;
+    }
   }
 
   /* ---------- VOLUME RAMP ---------- */
@@ -1010,6 +1171,17 @@
         reason:info.reason,match:info.match,ccSnippet:info.ccSnippet,url:location.href,
         noCcMs:info.noCcMs,lock:lockMsLeft,pv:State.programVotes,quorum:State.programQuorumCount
       });
+      // Passive log transition
+      if (S.passiveLogging) {
+        passiveTransition(
+          shouldMute ? 'mute' : 'unmute',
+          State.currentConfidence,
+          { shouldMute, reason: info.reason },
+          info.signals || State.lastSignals || [],
+          info.ccSnippet || ''
+        );
+        schedulePassiveFlush();
+      }
       if(S.hudAutoOnMute) scheduleHudVisibility(shouldMute);
       else if(S.showHUD) hudFadeTo(true);
     }
@@ -1114,6 +1286,7 @@
 
     // Decide mute state
     const decision = decide(confidence, signals);
+    passiveBoundaryCheck(confidence, decision, signals);
 
     // Store last signals for feedback system
     State.lastSignals = signals;
@@ -1142,6 +1315,13 @@
         });
       }
       if (t >= State.tuningEndMs) endTuningSession();
+    }
+
+    // Passive log snapshot collection
+    if (S.passiveLogging && (t - State.passiveLastSnapshotMs >= S.passiveLogIntervalMs)) {
+      State.passiveLastSnapshotMs = t;
+      passiveSnapshot(confidence, decision, signals, ccText);
+      schedulePassiveFlush();
     }
   }
 
@@ -1334,6 +1514,18 @@
 
     _feedbackLog.push(entry);
     if (State.tuningActive) State.tuningFlags.push(entry);
+    if (S.passiveLogging) {
+      passiveEvent('flag', {
+        type: entry.action === 'FALSE_POSITIVE' ? 'false_positive' : 'false_negative',
+        conf: entry.confidence,
+        muted: wasMuted,
+        signals: entry.signals.map(s => ({ s: s.source, w: s.weight, m: s.match || undefined })),
+        caption: entry.captionText,
+        adLock: entry.adLockActive,
+        quorum: entry.programQuorum,
+      });
+      schedulePassiveFlush();
+    }
     kvSet(FEEDBACK_KEY, _feedbackLog);
 
     pushEventLog('FLAG_INCORRECT_STATE',{
@@ -1386,6 +1578,19 @@
 
     _feedbackLog.push(entry);
     if (State.tuningActive) State.tuningFlags.push(entry);
+    if (S.passiveLogging) {
+      passiveEvent('flag', {
+        type: entry.action === 'FALSE_POSITIVE' ? 'false_positive' : 'false_negative',
+        softFlag: true,
+        conf: entry.confidence,
+        muted: wasMuted,
+        signals: entry.signals.map(s => ({ s: s.source, w: s.weight, m: s.match || undefined })),
+        caption: entry.captionText,
+        adLock: entry.adLockActive,
+        quorum: entry.programQuorum,
+      });
+      schedulePassiveFlush();
+    }
     kvSet(FEEDBACK_KEY, _feedbackLog);
     log('Soft flag logged:', entry.action, 'confidence:', entry.confidence, '(no state change)');
 
@@ -1505,7 +1710,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.3.6',
+      version: '4.3.7',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1547,6 +1752,7 @@
     { id: 'useTrueMute', tab: 'general', type: 'checkbox', label: 'True mute (vs low volume)' },
     { id: 'debug', tab: 'general', type: 'checkbox', label: 'Console debug logging' },
     { id: 'showTuningUI', tab: 'general', type: 'checkbox', label: 'Show tuning session button', section: 'Debug / Tuning' },
+    { id: 'passiveLogging', tab: 'general', type: 'checkbox', label: 'Enable passive logging (continuous)' },
     { id: 'hideCaptions', tab: 'general', type: 'checkbox', label: 'Hide captions from view', section: 'Caption Display' },
     // HUD tab
     { id: 'showHUD', tab: 'hud', type: 'checkbox', label: 'Show HUD always' },
@@ -1664,8 +1870,10 @@
         <div style="font-weight:600;font-size:13px;">Logs</div>
         ${menuBtn('dl','Download Captions','Ctrl+D')}
         ${menuBtn('dlFeedback','Download Feedback Log (JSON)','')}
+        ${menuBtn('dlPassive','Download Passive Log (JSON)','')}
         ${menuBtn('clearlog','Clear Caption Log','','#8b0000')}
         ${menuBtn('clearFeedback','Clear Feedback Log','','#8b0000')}
+        ${menuBtn('clearPassive','Clear Passive Log','','#8b0000')}
       </div>
       <div style="display:grid;gap:8px;border-top:1px solid #333;padding-top:8px;">
         <div style="font-weight:600;font-size:13px;">Caption Logging</div>
@@ -1692,7 +1900,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.6 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.7 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1732,6 +1940,8 @@
     panel.querySelector('#clearlog').onclick = () => { window._captions_log = []; kvSet(CAPLOG_KEY, window._captions_log); alert('Caption log cleared.'); };
     panel.querySelector('#dlFeedback').onclick = () => downloadText('yttp_feedback.json', JSON.stringify(_feedbackLog, null, 2));
     panel.querySelector('#clearFeedback').onclick = () => { _feedbackLog = []; kvSet(FEEDBACK_KEY, _feedbackLog); alert('Feedback log cleared.'); };
+    panel.querySelector('#dlPassive').onclick = () => { if (State.passiveLog.length === 0) { alert('No passive log data.'); return; } passiveAutoSave(); };
+    panel.querySelector('#clearPassive').onclick = () => { if (confirm('Clear passive log? This cannot be undone.')) { State.passiveLog = []; State.passiveSessionStart = Date.now(); State.passiveBoundaryState = 'program'; kvSet(PASSIVE_LOG_KEY, []); log('Passive log cleared'); alert('Passive log cleared.'); } };
     panel.querySelector('#export').onclick = () => {
       const url = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(S, null, 2));
       const a = document.createElement('a'); a.href = url; a.download = 'yttp_settings.json'; a.click();
@@ -1743,7 +1953,7 @@
       r.readAsText(f);
     };
     panel.querySelector('#refreshDetection').onclick = () => {
-      const USER_PREFS = ['useTrueMute','debug','showTuningUI','hideCaptions','showHUD','hudAutoOnMute','showConfidenceMeter','showHudSlider','confidenceMeterStyle','confidenceThreshold','hudAutoDelayMs','hudFadeMs','hudSlidePx','captionLogLimit','volumeRampMs'];
+      const USER_PREFS = ['useTrueMute','debug','showTuningUI','hideCaptions','showHUD','hudAutoOnMute','showConfidenceMeter','showHudSlider','confidenceMeterStyle','confidenceThreshold','hudAutoDelayMs','hudFadeMs','hudSlidePx','captionLogLimit','volumeRampMs','passiveLogging'];
       const preserved = {};
       USER_PREFS.forEach(k => { if (k in S) preserved[k] = S[k]; });
       S = { ...DEFAULTS, ...preserved };
@@ -1766,6 +1976,7 @@
       saveSettings(S);
       applySettings(true);
       if (NS.tuningBtn) NS.tuningBtn.style.display = S.showTuningUI ? '' : 'none';
+      startPassiveSaveTimer();
       alert('Settings saved and applied.');
     };
     return panel;
@@ -1785,8 +1996,28 @@
   /* ---------- BOOT ---------- */
   applySettings(false);
   startLoop();
+
+  // Passive logging session start
+  if (S.passiveLogging) {
+    const lastEntry = State.passiveLog[State.passiveLog.length - 1];
+    const gap = lastEntry ? Date.now() - (lastEntry.t || 0) : Infinity;
+    if (gap > 1800000) {
+      State.passiveSessionStart = Date.now();
+      State.passiveLog = [];
+    }
+    passiveEvent('session_start', { version: '4.3.7', url: location.href });
+    schedulePassiveFlush();
+  }
+  startPassiveSaveTimer();
+
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
+    if (S.passiveLogging) {
+      passiveEvent('session_end');
+      kvSet(PASSIVE_LOG_KEY, State.passiveLog);
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.7' });
+      passiveAutoSave();
+    }
   });
-  log('Booted v4.3.6',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.3.7',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
