@@ -187,17 +187,31 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 **Pattern**: Price mentions (+5) and textFeatures (+25 for price patterns like "$10") fire on CNBC market discussion.
 **Fix**: `priceMention` suppressed when `recentProgram` is set. `textFeatures` capped at +12 when `recentProgram` is set (45s window). Still worth monitoring for edge cases near the window boundary.
 
-### 6. ALL CAPS Ads Triggering caseShift→program (Mitigated v4.3.8)
-**Pattern**: Some ads (e.g., Coventry Direct) use ALL CAPS text identical to CNBC live captions. After captionLoss, caseShift detects ALL CAPS continuity and awards -28 (program signal).
-**Mitigation**: caseShift(program) weight halved when `adContext` or `ctaDetected` are also present. Known limitation: if no ad signals fire alongside caseShift, the false program signal persists. User flag → ad_lock provides recovery.
+### 6. ALL CAPS Ads Triggering caseShift→program (Open — 3 sightings)
+**Pattern**: Some ads (Coventry Direct, Shopify-style) use ALL CAPS text identical to CNBC live captions. After captionLoss, caseShift detects ALL CAPS continuity and awards -28 (program signal). Causes 8-11s false negatives.
+**Mitigation (v4.3.8)**: caseShift(program) weight halved when `adContext` or `ctaDetected` are also present. Known limitation: if no ad signals fire alongside caseShift, the false program signal persists.
+**Sightings**: Coventry Direct (v4.3.7 12:28:50, 8s FN), ALL CAPS ad (v4.3.9 15:44:14, 11s FN on "LAUNCH TO LE...SWITCH TO"), Coventry Direct again in labeled session.
+**Suggested fix**: After captionLoss→new captions, suppress caseShift(program) for ~10s unless speakerMarker or anchorName also present. CaptionLoss almost always precedes ad breaks.
 
 ### 7. Parent Company Ads Triggering programAllow (Fixed v4.3.8)
 **Pattern**: "Comcast Business" ads trigger `programAllow(-45)` because "Comcast" (CNBC parent) is in the allow phrase list via caption window residual.
 **Fix**: `programAllow` override suppressed in decision engine when `brandDetected` also fires on the same evaluation. "Comcast Business" added to brand terms.
+**Verified**: v4.3.9 15:28:07 — Comcast Business bumper had `brandDetected(4) + programAllow(-45)`, reason was PROGRAM_QUORUM_MET (not PROGRAM_CONFIRMED). Fix worked; system muted 11s later on captionBottomed.
 
-### 8. Testimonial-Style Ads Score Low (Monitoring)
-**Pattern**: First-person testimonial ads ("I didn't like the person looking back at me", "You and your team worked within my budget") trigger `conversational(-8)` because they use first-person pronouns and analytical-adjacent language. Net score stays at 36-42, well below threshold.
-**Status**: Not yet addressed. Only observed during manual mute period (no user impact). Future signal for "testimonial pattern" could help.
+### 8. Testimonial-Style Ads Score Low (Open — 3 sightings)
+**Pattern**: First/second-person ad copy triggers `conversational(-12)` because it uses pronouns and analytical-adjacent language. No strong ad signals counteract. Net score stays 36-44, well below threshold. Causes 5-18s false negatives.
+**Sightings**: Coventry Direct testimonial (v4.3.7 12:29:03, 35s FN), financial advisory ad (v4.3.9 15:30:20, 18s FN on "Helping you achieve them"), Blackstone ad (v4.3.9 15:43:56, 5s FN on "The best investors see the bigger picture").
+**Suggested fix**: During active ad lock or within 30s of a mute, treat `conversational` as neutral (0) instead of program-leaning. Alternatively, new signal: `captionBottomed` + mixed case + `conversational` together = likely ad testimonial.
+
+### 9. "quote" in adContext Matching Editorial Attributions (Open — 2 sightings)
+**Pattern**: `"quote"` in the adContext phrase list matches CNBC editorial attributions ("she said, quote, we expect sequential revenue growth"). Causes sub-second false mute blips, instantly corrected by next caption evaluation.
+**Sightings**: v4.3.9 15:15:35 (conf=66, "QUOTE, WE EXPECT SEQUENTIAL REVENUE GROWTH"), v4.3.9 15:23:58 (conf=66, "QUOTE, I HAVE NEVER SEEN PERFORMANCE LIKE THIS").
+**Suggested fix**: Replace `"quote"` with specific ad phrases: `"get a quote"`, `"free quote"`, `"quote today"`.
+
+### 10. imperativeVoice on "kicking off" (Open — 1 sighting)
+**Pattern**: "that call kicking off at the top of the hour" triggered `imperativeVoice(8)`. Sub-second false mute, instantly corrected by `anchorName(-28)` on "SEEMA MODY".
+**Sightings**: v4.3.9 15:23:44 only.
+**Suggested fix**: None needed unless it recurs. If persistent, add "kicking off" to an imperative verb exclusion list.
 
 ## Regression Test Procedure
 
