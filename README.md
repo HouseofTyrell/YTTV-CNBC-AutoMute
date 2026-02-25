@@ -4,18 +4,21 @@ A Tampermonkey/Greasemonkey userscript that automatically mutes advertisements o
 
 ## Overview
 
-This userscript intelligently detects when ads are playing on YouTube TV (primarily targeting CNBC and financial news channels) and automatically mutes them. It uses a **signal-aggregation confidence system** where 18 weighted signals (ad-leaning and program-leaning) feed a 0-100 confidence meter — no single signal can trigger a mute on its own.
+This userscript intelligently detects when ads are playing on YouTube TV (primarily targeting CNBC and financial news channels) and automatically mutes them. It uses a **signal-aggregation confidence system** where 21+ weighted signals (ad-leaning and program-leaning) feed a 0-100 confidence meter — no single signal can trigger a mute on its own.
 
 ## Features
 
-- **Signal-Aggregation Confidence Scoring**: 18 independent signals contribute weighted scores to a 0-100 confidence meter. Muting only occurs when the aggregate confidence exceeds a configurable threshold (default: 65).
-- **Smart Caption Analysis**: Detects ads by analyzing closed caption text for pharma disclaimers, brand mentions, CTAs, offer language, and imperative voice patterns.
+- **Signal-Aggregation Confidence Scoring**: 21+ independent signals contribute weighted scores to a 0-100 confidence meter. Muting only occurs when the aggregate confidence exceeds a configurable threshold (default: 65).
+- **Smart Caption Analysis**: Detects ads by analyzing closed caption text for pharma disclaimers, brand mentions, CTAs, offer language, imperative voice patterns, and case shift transitions.
 - **Guest Intro Detection**: Suppresses brand-name signals when editorial discussion context is detected (e.g., "joining us from Fidelity" won't trigger a mute).
 - **Sliding Caption Window**: Analyzes both the latest caption line and a sliding window of recent lines for broader context.
 - **Program Detection**: 33 CNBC anchor names, 14 named segments, 11 return-from-break phrases, and ~50 allow phrases for strong program identification.
-- **Tuning Session**: Timed 5-minute diagnostic workflow with signal snapshots, active flagging, post-session questionnaire, and downloadable JSON report for weight tuning.
-- **Ad Lock Mechanism**: Maintains mute for 45 seconds (configurable) during commercial breaks to prevent rapid toggling.
+- **Case Shift Detection**: Tracks capitalization history — CNBC live captions are ALL CAPS while ads are mixed case. Transitions between styles provide strong directional signals.
+- **Passive Logging**: Continuous structured logging over multi-hour sessions with auto-detected ad boundaries, periodic auto-save, and flag capture for offline analysis and tuning.
+- **Active Tuning Session**: Timed 5-minute diagnostic workflow with signal snapshots, active flagging, post-session questionnaire, and downloadable JSON report.
+- **Ad Lock Mechanism**: Maintains mute for 45 seconds (configurable) during commercial breaks with a decaying floor to prevent rapid toggling.
 - **Program Quorum System**: Requires consecutive program-leaning captions before unmuting to avoid false positives.
+- **Manual Mute Override**: Toggle persistent mute independently of the auto-mute system (e.g., during meetings).
 - **Structured Feedback System**: Flag false positives/negatives with full signal breakdown capture for analysis and weight tuning.
 - **Volume Ramping**: Smooth ease-in volume ramp on unmute (1.5s default, configurable) instead of jarring instant unmute.
 - **Visual HUD**: On-screen display with confidence meter, threshold slider, signal breakdown, and mute status.
@@ -47,7 +50,7 @@ Alternatively, you can copy the entire script content and create a new userscrip
 ### Signal-Aggregation Pipeline
 
 ```
-Caption Text → SignalCollector (18 signals) → ConfidenceScorer (0-100) → DecisionEngine → Mute/Unmute
+Caption Text → SignalCollector (21+ signals) → ConfidenceScorer (0-100) → DecisionEngine → Mute/Unmute
 ```
 
 Each signal contributes a positive (ad-leaning) or negative (program-leaning) weight to a base score of 50. The final confidence score determines whether to mute.
@@ -56,34 +59,43 @@ Each signal contributes a positive (ad-leaning) or negative (program-leaning) we
 
 | Signal | Weight | Description |
 |--------|--------|-------------|
+| DOM Ad Showing | +45 | `.ad-showing` class on video player |
 | Hard Phrase | +40 | Pharma disclaimers, paid programming, strong ad markers |
 | Break Cue | +38 | "we'll be right back", "stay with us" |
-| Brand Detected | +15 | Known advertiser brands (suppressed during guest intros) |
+| Case Shift → Ad | +28 | ALL CAPS captions transition to mixed case |
+| Brand Detected | +12 | Known advertiser brands (suppressed during guest intros) |
 | Ad Context | +10 | "sponsored by", ".com", "call now" |
 | URL/Phone | +10 | URLs or phone numbers in caption text |
+| Caption Bottomed | +10 | Captions positioned at bottom of screen |
 | CTA Detected | +8 | "apply now", "enroll", "sign up" |
 | Offer Detected | +8 | "$0 premium", "limited time", pricing language |
-| Imperative Voice | +8 | High ratio of "you/your" + command verbs |
-| Caption Loss | +18 max | Captions disappear (common during ads) |
-| Text Features | varies | ALL CAPS, excessive punctuation, price mentions |
+| Imperative Voice | +8 | Imperative verbs + "you/your" pronouns (requires verb) |
+| Short Punchy Lines | +6 | Average caption line length < 50 chars |
+| Caps Heavy | +6 | High caps ratio in mixed-case context |
+| Price Mention | +5 | Dollar amounts, percentages (dampened during program) |
+| Caption Loss | +25 max | Captions disappear (common at ad break boundaries) |
+| Text Features | varies | Caps, punctuation density, price patterns (capped at +12 during program) |
+| Punct Heavy | +4 | Exclamation marks, ellipses |
 
 ### Program-Leaning Signals (negative weight)
 
 | Signal | Weight | Description |
 |--------|--------|-------------|
-| Program Allow | -45 | "earnings", "breaking news", show names |
+| Program Allow | -45 | "earnings", "breaking news", CNBC show names (suppressed when brand also detected) |
 | Return from Break | -42 | "welcome back to squawk", "we are back" |
+| Case Shift → Program | -28 | Mixed case captions transition to ALL CAPS (halved when ad signals present) |
 | Anchor Name | -28 | 33 CNBC anchors (Sara Eisen, Jim Cramer, etc.) |
-| Program Anchor | -25 | Regex-based: "joins us now", "conference call", etc. |
 | Guest Intro | -22 | Editorial brand discussion context |
 | Segment Name | -18 | "lightning round", "final trades", etc. |
-| Conversational | -12 | Third-person analytical language patterns |
+| Speaker Marker | -15 | `>>` in captions (CNBC speaker change, never in ads) |
+| Conversational | -12 | Third-person pronouns + analytical/financial terms |
 
 ### State Management
 
-- **Ad Lock**: When confidence exceeds 75, locks mute for 75s (configurable) with a floor of 65
+- **Ad Lock**: When confidence exceeds 82, locks mute for 45s (configurable) with a decaying floor
 - **Program Quorum**: Requires multiple consecutive program signals before unmuting
 - **Manual Override**: After flagging a false positive, prevents re-muting for 8s
+- **Recent Program**: Tracks when strong program signals last fired; dampens price/textFeatures signals within 45s
 
 ## Usage
 
@@ -99,11 +111,11 @@ Each signal contributes a positive (ad-leaning) or negative (program-leaning) we
 
 Press **Ctrl+Shift+S** to open the tabbed settings panel:
 
-- **General**: True mute toggle, debug logging, caption visibility
+- **General**: True mute toggle, debug logging, caption visibility, passive logging toggle
 - **HUD**: Confidence meter style, threshold slider, animation settings
 - **Timing**: Poll interval, CC loss delay, ad lock duration, quorum settings, caption window size, volume ramp
 - **Phrases**: All phrase lists (one per line, editable)
-- **Actions**: Download/clear logs, export/import settings, download feedback log
+- **Actions**: Download/clear logs, export/import settings, download/clear passive log
 
 ### HUD (Heads-Up Display)
 
@@ -114,18 +126,21 @@ The HUD shows:
 - Adjustable threshold slider
 - Top 3 contributing signals with weights
 
-### Feedback System
+### Passive Logging
 
-Click the red "Flag Incorrect State" button (or press Ctrl+Shift+F) when the script makes a mistake. Each feedback entry captures:
-- Whether it was a false positive or false negative
-- Full signal array with weights and matches
-- Last 5 caption lines for context
-- Confidence score and ad lock state
-- URL and timestamp
+Passive logging runs continuously in the background, capturing structured data for offline analysis:
 
-Download feedback as JSON from the settings panel for analysis and weight tuning.
+- **Periodic snapshots** every 5 seconds with confidence, signals, caption text, and mute state
+- **Transition events** captured immediately on every mute/unmute change
+- **Auto-detected boundaries** marking probable ad-break start/end events
+- **Flag events** when you press Flag Incorrect State (ground truth labels)
+- **Session lifecycle** events (start, end, manual mute on/off)
+- **Auto-save** every 15 minutes via download (filename includes start and end time)
+- **Ring buffer** holds ~2500 records (~3.5 hours) with persistence across page refreshes
 
-### Tuning Session
+Download passive logs from the settings panel and provide them for analysis to tune signal weights.
+
+### Active Tuning Session
 
 The tuning session is a structured 5-minute workflow for collecting high-quality diagnostic data:
 
@@ -138,7 +153,16 @@ The tuning session is a structured 5-minute workflow for collecting high-quality
    - Optional notes
 5. **Download report**: Comprehensive JSON file with signal snapshots (every 5s), all flags, caption log, settings, and your feedback
 
-Share the downloaded tuning report in a new session for analysis and weight tuning to improve accuracy.
+### Feedback System
+
+Click the red "Flag Incorrect State" button (or press Ctrl+Shift+F) when the script makes a mistake. Each feedback entry captures:
+- Whether it was a false positive or false negative
+- Full signal array with weights and matches
+- Last 5 caption lines for context
+- Confidence score and ad lock state
+- URL and timestamp
+
+Download feedback as JSON from the settings panel for analysis and weight tuning.
 
 ## Configuration
 
@@ -158,6 +182,10 @@ Share the downloaded tuning report in a new session for analysis and weight tuni
 | `captionWindowSize` | 5 | Number of recent caption lines for window analysis |
 | `volumeRampMs` | 1500 | Volume ramp duration on unmute (0 = instant) |
 | `tuningDurationMs` | 300000 | Tuning session length (5 minutes) |
+| `passiveLogging` | true | Enable continuous passive logging |
+| `passiveLogIntervalMs` | 5000 | Passive snapshot interval |
+| `passiveSaveIntervalMs` | 900000 | Passive auto-save interval (15 minutes) |
+| `passiveLogCapacity` | 2500 | Max records in passive log ring buffer |
 
 ### Phrase Lists
 
@@ -205,14 +233,14 @@ Enable in settings:
 
 ### Too Many False Positives (Muting During Shows)
 
-1. Lower `confidenceThreshold` (default 65, try 70-75)
+1. Raise `confidenceThreshold` (try 70-75)
 2. Add common show phrases to "Allow Phrases" list
 3. Decrease `minAdLockMs` (shorter ad lock duration)
 4. Check feedback log to see which signals are triggering
 
 ### Not Muting Ads
 
-1. Raise `confidenceThreshold` (try 55-60)
+1. Lower `confidenceThreshold` (try 55-60)
 2. Add common ad phrases to "Hard Phrases" or "Brand Terms"
 3. Decrease `muteOnNoCCDelayMs` (faster mute on caption loss)
 4. Check caption logs to see what text appears during ads
@@ -233,6 +261,7 @@ Enable in settings:
 - **Route Detection**: History API interception (pushState/replaceState + popstate)
 - **HUD**: Build DOM once, update only textContent on subsequent calls
 - **DOM Caching**: Video and caption window queries cached with 2s TTL
+- **Passive Log**: Ring buffer with GM persistence, auto-boundary detection, periodic auto-save via GM_download
 
 ## License
 
@@ -252,5 +281,5 @@ Developed for CNBC and financial news viewers on YouTube TV. Optimized for finan
 
 ---
 
-**Version**: 4.3.2
-**Last Updated**: 2026
+**Version**: 4.3.8
+**Last Updated**: 2026-02-25
