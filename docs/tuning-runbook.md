@@ -140,10 +140,10 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 | shortPunchyLines | +6 | ad | Avg caption line length < 50 chars | Fires on short CNBC live caption segments. Mild signal, not problematic alone. |
 | capsHeavy | +6 | ad | High caps ratio in mixed-case context | Suppressed when avg recent caps is high (CNBC live is ALL CAPS) |
 | punctHeavy | +4 | ad | Exclamation marks, ellipses | Mild signal |
-| priceMention | +5 | ad | Dollar amounts, percentages | Dampened when recent program signals present |
+| priceMention | +5 | ad | Dollar amounts, percentages | Dampened when recent program signals present. **v4.3.8**: textFeatures total capped at +12 when recentProgram (45s window). |
 | captionLoss | +25 max | ad | No captions for extended period | Strong signal at ad break boundaries |
 | captionBottomed | +10 | ad | Captions positioned at bottom | |
-| caseShift (ad) | +28 | ad | ALL CAPS → mixed case transition | |
+| caseShift (ad) | +28 | ad | ALL CAPS → mixed case transition | Reliable |
 | domAdShowing | +45 | ad | `.ad-showing` class on player | May not work on tv.youtube.com |
 | programAllow | -45 | prog | CNBC show titles, tickers, financial terms | Very strong, overrides most ad signals |
 | returnFromBreak | -42 | prog | "Welcome back" type phrases | Very strong |
@@ -152,7 +152,7 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 | segmentName | -18 | prog | "Squawk Box", "Power Lunch" etc | |
 | speakerMarker | -15 | prog | `>>` in captions (CNBC speaker change) | Never appears in ads |
 | conversational | -12 | prog | Third-person pronouns + analytical words | **v4.3.6**: Added financial terms (earnings, economy, inflation, equities, market, stocks, rates, yields, fiscal, tariffs, monetary, cyclical, sector) |
-| caseShift (prog) | -28 | prog | Mixed case → ALL CAPS transition | |
+| caseShift (prog) | -28 | prog | Mixed case → ALL CAPS transition | **v4.3.8**: Halved when adContext/ctaDetected also present (ALL CAPS ads) |
 
 ## Known Failure Patterns
 
@@ -173,9 +173,21 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 **Pattern**: Quorum persisted across ad breaks, preventing muting.
 **Fix**: 15s freshness requirement + caption loss resets quorum.
 
-### 5. Price on Financial Content
-**Pattern**: Price mentions (+5) fire on CNBC market discussion.
-**Mitigation**: `priceMention` dampened when `recentProgram` flag is set. Still worth monitoring.
+### 5. Price on Financial Content (Improved v4.3.8)
+**Pattern**: Price mentions (+5) and textFeatures (+25 for price patterns like "$10") fire on CNBC market discussion.
+**Fix**: `priceMention` suppressed when `recentProgram` is set. `textFeatures` capped at +12 when `recentProgram` is set (45s window). Still worth monitoring for edge cases near the window boundary.
+
+### 6. ALL CAPS Ads Triggering caseShift→program (Mitigated v4.3.8)
+**Pattern**: Some ads (e.g., Coventry Direct) use ALL CAPS text identical to CNBC live captions. After captionLoss, caseShift detects ALL CAPS continuity and awards -28 (program signal).
+**Mitigation**: caseShift(program) weight halved when `adContext` or `ctaDetected` are also present. Known limitation: if no ad signals fire alongside caseShift, the false program signal persists. User flag → ad_lock provides recovery.
+
+### 7. Parent Company Ads Triggering programAllow (Fixed v4.3.8)
+**Pattern**: "Comcast Business" ads trigger `programAllow(-45)` because "Comcast" (CNBC parent) is in the allow phrase list via caption window residual.
+**Fix**: `programAllow` override suppressed in decision engine when `brandDetected` also fires on the same evaluation. "Comcast Business" added to brand terms.
+
+### 8. Testimonial-Style Ads Score Low (Monitoring)
+**Pattern**: First-person testimonial ads ("I didn't like the person looking back at me", "You and your team worked within my budget") trigger `conversational(-8)` because they use first-person pronouns and analytical-adjacent language. Net score stays at 36-42, well below threshold.
+**Status**: Not yet addressed. Only observed during manual mute period (no user impact). Future signal for "testimonial pattern" could help.
 
 ## Regression Test Procedure
 
