@@ -1,0 +1,2511 @@
+{
+  "version": "4.0.6",
+  "reportType": "tuning_session",
+  "sessionId": "tuning-2026-02-24T17-31-53",
+  "startTime": "2026-02-24T17:26:13.326Z",
+  "endTime": "2026-02-24T17:31:53.665Z",
+  "durationMs": 340339,
+  "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+  "settings": {
+    "confidenceThreshold": 75,
+    "minAdLockMs": 45000,
+    "muteOnNoCCDelayMs": 2500,
+    "programVotesNeeded": 2,
+    "programQuorumLines": 3,
+    "captionWindowSize": 5
+  },
+  "userFeedback": {
+    "hadCommercials": "yes",
+    "incorrectStateLocation": "both",
+    "notes": ""
+  },
+  "stats": {
+    "totalSnapshots": 66,
+    "mutedSnapshots": 38,
+    "mutePercent": 58,
+    "avgConfidence": 51,
+    "totalFlags": 19,
+    "falsePositives": 10,
+    "falseNegatives": 9
+  },
+  "flags": [
+    {
+      "timestamp": "2026-02-24T17:26:54.678Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "",
+      "lastNLines": [
+        "OF TALK ABOUT THAT COMING UP.DOW'S GOOD",
+        "OF TALK ABOUT THAT COMING UP.DOW'S GOOD F",
+        "OF TALK ABOUT THAT COMING UP.DOW'S GOOD FOR",
+        "OF TALK ABOUT THAT COMING UP.DOW'S GOOD FOR 4",
+        "08"
+      ],
+      "confidence": 7,
+      "signals": [
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=34"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "COMING UP"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=174"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 3
+    },
+    {
+      "timestamp": "2026-02-24T17:27:04.057Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "rerouting.",
+      "lastNLines": [
+        "He sure knowsthese parts well.",
+        "Folks say the plainswhisper to him.",
+        "(♪♪)",
+        "[GPS Voice]Outlaws in 500 feet,",
+        "rerouting."
+      ],
+      "confidence": 40,
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=22"
+        },
+        {
+          "source": "captionBottomed",
+          "weight": 4,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=114"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 3
+    },
+    {
+      "timestamp": "2026-02-24T17:27:09.279Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "With one investment, you can access",
+      "lastNLines": [
+        "rerouting.",
+        "Making a left!",
+        "Innovation changes everything.",
+        "Man, he's good.",
+        "With one investment, you can access"
+      ],
+      "confidence": 40,
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=21"
+        },
+        {
+          "source": "captionBottomed",
+          "weight": 4,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=108"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 3
+    },
+    {
+      "timestamp": "2026-02-24T17:27:17.011Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "and more in prospectus at Invesco.com.",
+      "lastNLines": [
+        "With one investment, you can access",
+        "the Nasdaq-100 innovators who are rethinking the world.",
+        "Before investing, carefully read and consider fund",
+        "investment objectives, risks, charges, expenses,",
+        "and more in prospectus at Invesco.com."
+      ],
+      "confidence": 15,
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionBottomed",
+          "weight": 4,
+          "match": null
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 3
+    },
+    {
+      "timestamp": "2026-02-24T17:27:23.415Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "",
+      "lastNLines": [
+        "With one investment, you can access",
+        "the Nasdaq-100 innovators who are rethinking the world.",
+        "Before investing, carefully read and consider fund",
+        "investment objectives, risks, charges, expenses,",
+        "and more in prospectus at Invesco.com."
+      ],
+      "confidence": 26,
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 15,
+          "match": "noCcMs=6098"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 3
+    },
+    {
+      "timestamp": "2026-02-24T17:27:40.221Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "",
+      "lastNLines": [
+        "With one investment, you can access",
+        "the Nasdaq-100 innovators who are rethinking the world.",
+        "Before investing, carefully read and consider fund",
+        "investment objectives, risks, charges, expenses,",
+        "and more in prospectus at Invesco.com."
+      ],
+      "confidence": 29,
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=22870"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 3
+    },
+    {
+      "timestamp": "2026-02-24T17:27:50.953Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "",
+      "lastNLines": [
+        "With one investment, you can access",
+        "the Nasdaq-100 innovators who are rethinking the world.",
+        "Before investing, carefully read and consider fund",
+        "investment objectives, risks, charges, expenses,",
+        "and more in prospectus at Invesco.com."
+      ],
+      "confidence": 29,
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=33662"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 3
+    },
+    {
+      "timestamp": "2026-02-24T17:28:15.396Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "",
+      "lastNLines": [
+        "With one investment, you can access",
+        "the Nasdaq-100 innovators who are rethinking the world.",
+        "Before investing, carefully read and consider fund",
+        "investment objectives, risks, charges, expenses,",
+        "and more in prospectus at Invesco.com."
+      ],
+      "confidence": 29,
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=57989"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 3
+    },
+    {
+      "timestamp": "2026-02-24T17:29:23.878Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "REDEFINING INSURANCE.",
+      "lastNLines": [
+        "REDEFINING I",
+        "REDEFINING INSUR",
+        "REDEFINING INSURAN",
+        "REDEFINING INSURANCE",
+        "REDEFINING INSURANCE."
+      ],
+      "confidence": 65,
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=17"
+        }
+      ],
+      "adLockActive": true,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-24T17:29:31.613Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "REDEFINING INSURANCE.",
+      "lastNLines": [
+        "REDEFINING I",
+        "REDEFINING INSUR",
+        "REDEFINING INSURAN",
+        "REDEFINING INSURANCE",
+        "REDEFINING INSURANCE."
+      ],
+      "confidence": 65,
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=17"
+        }
+      ],
+      "adLockActive": true,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-24T17:29:34.993Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "REDEFINING INSURANCE.",
+      "lastNLines": [
+        "REDEFINING I",
+        "REDEFINING INSUR",
+        "REDEFINING INSURAN",
+        "REDEFINING INSURANCE",
+        "REDEFINING INSURANCE."
+      ],
+      "confidence": 65,
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=17"
+        }
+      ],
+      "adLockActive": true,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-24T17:29:45.269Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "CONSUMER CONFIDENCE BEAT. SOTHAT'S ONE THING. BUT",
+      "lastNLines": [
+        "LOOKS PRETTY GOOD TODAY. JUSTCONSUMER CONFIDENCE BEAT. SOTHAT'S ONE",
+        "LOOKS PRETTY GOOD TODAY. JUSTCONSUMER CONFIDENCE BEAT. SOTHAT'S ONE T",
+        "LOOKS PRETTY GOOD TODAY. JUSTCONSUMER CONFIDENCE BEAT. SOTHAT'S ONE THI",
+        "LOOKS PRETTY GOOD TODAY. JUSTCONSUMER CONFIDENCE BEAT. SOTHAT'S ONE THING.",
+        "CONSUMER CONFIDENCE BEAT. SOTHAT'S ONE THING. BU"
+      ],
+      "confidence": 88,
+      "signals": [
+        {
+          "source": "hardPhrase",
+          "weight": 40,
+          "match": "TTY"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=333"
+        }
+      ],
+      "adLockActive": true,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-24T17:30:06.930Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "WHICH JOE OWNS, HAS BEEN ON THELIST. I READ EARLIER",
+      "lastNLines": [
+        "INTO THE HALO IDEA. CARVANA,WHICH JOE OWNS, HAS BEEN ON THELIST. I RE",
+        "INTO THE HALO IDEA. CARVANA,WHICH JOE OWNS, HAS BEEN ON THELIST. I READ",
+        "INTO THE HALO IDEA. CARVANA,WHICH JOE OWNS, HAS BEEN ON THELIST. I READ E",
+        "INTO THE HALO IDEA. CARVANA,WHICH JOE OWNS, HAS BEEN ON THELIST. I READ EARLI",
+        "WHICH JOE OWNS, HAS BEEN ON THELIST. I READ EARLIER"
+      ],
+      "confidence": 65,
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "adLockActive": true,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-24T17:30:18.783Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "IF IT'S JUST SIMPLY THEY GOT ALITTLE TOO EXPENSIVE,",
+      "lastNLines": [
+        "IF IT'S JUST SIMPLY THEY GOT ALITTLE TOO E",
+        "IF IT'S JUST SIMPLY THEY GOT ALITTLE TOO EXP",
+        "IF IT'S JUST SIMPLY THEY GOT ALITTLE TOO EXPENSI",
+        "IF IT'S JUST SIMPLY THEY GOT ALITTLE TOO EXPENSIVE",
+        "IF IT'S JUST SIMPLY THEY GOT ALITTLE TOO EXPENSIVE,"
+      ],
+      "confidence": 65,
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=47"
+        },
+        {
+          "source": "conversational",
+          "weight": -12,
+          "match": "score=0.11,len=51"
+        }
+      ],
+      "adLockActive": true,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-24T17:30:27.792Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "WYNN. I THINK OPERATIONALLYTHEY'RE DOING JUST FINE, BUT ITHA",
+      "lastNLines": [
+        "WYNN. I THINK OPERATIONALLYTHEY'RE DOING JUST FINE,",
+        "WYNN. I THINK OPERATIONALLYTHEY'RE DOING JUST FINE, BUT",
+        "WYNN. I THINK OPERATIONALLYTHEY'RE DOING JUST FINE, BUT I",
+        "WYNN. I THINK OPERATIONALLYTHEY'RE DOING JUST FINE, BUT IT",
+        "WYNN. I THINK OPERATIONALLYTHEY'RE DOING JUST FINE, BUT ITHA"
+      ],
+      "confidence": 65,
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "adLockActive": true,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-24T17:30:45.030Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "SKIS? HAVE THERE BEEN SOMECONCERNS ABOUT OIL PRICES",
+      "lastNLines": [
+        "GET A LITTLE BIT AHEAD OF ITSSKIS? HAVE THERE BEEN SOMECONCERNS ABOUT O",
+        "GET A LITTLE BIT AHEAD OF ITSSKIS? HAVE THERE BEEN SOMECONCERNS ABOUT OIL",
+        "GET A LITTLE BIT AHEAD OF ITSSKIS? HAVE THERE BEEN SOMECONCERNS ABOUT OIL P",
+        "GET A LITTLE BIT AHEAD OF ITSSKIS? HAVE THERE BEEN SOMECONCERNS ABOUT OIL PRICE",
+        "SKIS? HAVE THERE BEEN SOMECONCERNS ABOUT OIL PRICES"
+      ],
+      "confidence": 56,
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-24T17:31:21.066Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "PRETTY DISAPPOINTING.>> I'M NOT SURE THAT IT DOES.",
+      "lastNLines": [
+        "PRETTY DISAPPOINTING.>> I'M NOT SURE",
+        "PRETTY DISAPPOINTING.>> I'M NOT SURE THAT",
+        "PRETTY DISAPPOINTING.>> I'M NOT SURE THAT I",
+        "PRETTY DISAPPOINTING.>> I'M NOT SURE THAT IT",
+        "PRETTY DISAPPOINTING.>> I'M NOT SURE THAT IT DOES"
+      ],
+      "confidence": 100,
+      "signals": [
+        {
+          "source": "hardPhrase",
+          "weight": 40,
+          "match": "TTY"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=43"
+        }
+      ],
+      "adLockActive": true,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-24T17:31:30.082Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": ">> I DO.>> LDS, TJX, BURLINGTON, DELTA,LIVE NATION,",
+      "lastNLines": [
+        ">> I DO.>> LDS, TJX, BURLINGTON, DELTA,LI",
+        ">> I DO.>> LDS, TJX, BURLINGTON, DELTA,LIVE",
+        ">> I DO.>> LDS, TJX, BURLINGTON, DELTA,LIVE N",
+        ">> I DO.>> LDS, TJX, BURLINGTON, DELTA,LIVE NATIO",
+        ">> I DO.>> LDS, TJX, BURLINGTON, DELTA,LIVE NATION,"
+      ],
+      "confidence": 65,
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=46"
+        }
+      ],
+      "adLockActive": true,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-24T17:31:34.170Z",
+      "action": "FALSE_NEGATIVE",
+      "wasMuted": false,
+      "captionText": ">> A LOT OF THOSE NAMES ARESEEING A BREAKDOWN",
+      "lastNLines": [
+        "CARIBBEAN.>> A LOT OF THOSE NAMES ARESEEING A",
+        ">> A LOT OF THOSE NAMES ARESEEING A",
+        ">> A LOT OF THOSE NAMES ARESEEING A BRE",
+        ">> A LOT OF THOSE NAMES ARESEEING A BREAK",
+        ">> A LOT OF THOSE NAMES ARESEEING A BREAKDOWN"
+      ],
+      "confidence": 65,
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=41"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "DOW"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 3
+    }
+  ],
+  "snapshots": [
+    {
+      "elapsed": 26,
+      "ts": "10:26:13",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=323"
+        }
+      ],
+      "caption": "AS WE HEAR, SCOTT, ABOUT ALLTHESE RELATIONSHIPS RELATED TOCHIPS, AS WE",
+      "adLock": false
+    },
+    {
+      "elapsed": 5122,
+      "ts": "10:26:18",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=277"
+        }
+      ],
+      "caption": "CHIPS, AS WE HEAR ABOUTALPHABET AND BROADCOM WITH THETENSOR",
+      "adLock": false
+    },
+    {
+      "elapsed": 10126,
+      "ts": "10:26:23",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=371"
+        }
+      ],
+      "caption": "HEAR FROM INFERENCE CHIPS BEINGDEVELOPED, WE WANT TO HAVE THECONFIDENCE THAT N",
+      "adLock": false
+    },
+    {
+      "elapsed": 15154,
+      "ts": "10:26:28",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=306"
+        }
+      ],
+      "caption": "CONTINUE TO SEE THE ROLLOUT OFTHESE TYPES OF",
+      "adLock": false
+    },
+    {
+      "elapsed": 20298,
+      "ts": "10:26:33",
+      "confidence": 94,
+      "muted": true,
+      "reason": "AD_LOCK",
+      "signals": [
+        {
+          "source": "breakCue",
+          "weight": 38,
+          "match": "QUICK BREAK"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": ">> SO WE'RE GOING TO TAKE AQUICK BREAK. WE'LL COME BACK.",
+      "adLock": true
+    },
+    {
+      "elapsed": 25334,
+      "ts": "10:26:38",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "PERFORMING GROUP TODAY, ONE OFTHE WORST PERFORMING GROUPS",
+      "adLock": true
+    },
+    {
+      "elapsed": 30359,
+      "ts": "10:26:43",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "THANK HOME DEPOT, IN PART FORWHAT'S HAPPENING TODAY IN",
+      "adLock": true
+    },
+    {
+      "elapsed": 35410,
+      "ts": "10:26:48",
+      "confidence": 7,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=34"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "COMING UP"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=174"
+        }
+      ],
+      "caption": "08",
+      "adLock": false
+    },
+    {
+      "elapsed": 40553,
+      "ts": "10:26:53",
+      "confidence": 7,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=34"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "COMING UP"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=174"
+        }
+      ],
+      "caption": "08",
+      "adLock": false
+    },
+    {
+      "elapsed": 45660,
+      "ts": "10:26:58",
+      "confidence": 7,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=31"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "COMING UP"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=159"
+        }
+      ],
+      "caption": "Folks say the plainswhisper to him.",
+      "adLock": false
+    },
+    {
+      "elapsed": 50693,
+      "ts": "10:27:04",
+      "confidence": 40,
+      "muted": false,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=22"
+        },
+        {
+          "source": "captionBottomed",
+          "weight": 4,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=114"
+        }
+      ],
+      "caption": "rerouting.",
+      "adLock": false
+    },
+    {
+      "elapsed": 55804,
+      "ts": "10:27:09",
+      "confidence": 40,
+      "muted": false,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=21"
+        },
+        {
+          "source": "captionBottomed",
+          "weight": 4,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=108"
+        }
+      ],
+      "caption": "With one investment, you can access",
+      "adLock": false
+    },
+    {
+      "elapsed": 60820,
+      "ts": "10:27:14",
+      "confidence": 0,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=37"
+        },
+        {
+          "source": "captionBottomed",
+          "weight": 4,
+          "match": null
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=189"
+        }
+      ],
+      "caption": "Before investing, carefully read and consider fund",
+      "adLock": false
+    },
+    {
+      "elapsed": 65822,
+      "ts": "10:27:19",
+      "confidence": 11,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 70965,
+      "ts": "10:27:24",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=7030"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 75974,
+      "ts": "10:27:29",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=12039"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 81031,
+      "ts": "10:27:34",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=17096"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 86178,
+      "ts": "10:27:39",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=22243"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 91321,
+      "ts": "10:27:44",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=27386"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 96354,
+      "ts": "10:27:49",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=32419"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 101502,
+      "ts": "10:27:54",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=37567"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 106644,
+      "ts": "10:27:59",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=42709"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 111776,
+      "ts": "10:28:05",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=47841"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 116928,
+      "ts": "10:28:10",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=52993"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 122075,
+      "ts": "10:28:15",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".com"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 18,
+          "match": "noCcMs=58140"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "Nasdaq"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=230"
+        }
+      ],
+      "caption": "",
+      "adLock": false
+    },
+    {
+      "elapsed": 127076,
+      "ts": "10:28:20",
+      "confidence": 80,
+      "muted": true,
+      "reason": "AD_LOCK",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": "POLICY"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.25"
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=34"
+        }
+      ],
+      "caption": "DO YOU HAVE A LIFE INSURANCEPOLICY YOU N",
+      "adLock": true
+    },
+    {
+      "elapsed": 132137,
+      "ts": "10:28:25",
+      "confidence": 74,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": "POLICY"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.15"
+        }
+      ],
+      "caption": "YOU CAN SELL YOUR POLICY - EVENA TERM POLICY - FOR AN IMMEDIATE",
+      "adLock": true
+    },
+    {
+      "elapsed": 137149,
+      "ts": "10:28:30",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "ctaDetected",
+          "weight": 8,
+          "match": "LEARN MORE"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "DIRECT TO LEARN MORE. WE THOUGHTWE HAD PLANNED CAREFULLY FOR OUR",
+      "adLock": true
+    },
+    {
+      "elapsed": 142177,
+      "ts": "10:28:35",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": "POLICY"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -12,
+          "match": "score=0.11,len=58"
+        }
+      ],
+      "caption": "SUPPLEMENT OUR INCOME. OURFRIEND SOLD THEIR POLICY TO HELP",
+      "adLock": true
+    },
+    {
+      "elapsed": 147210,
+      "ts": "10:28:40",
+      "confidence": 66,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": "POLICY"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "THAT GOT ME THINKING. MAYBESELLING OUR POLICY COULD HELPWITH OUR RETIREMENT. I'M",
+      "adLock": true
+    },
+    {
+      "elapsed": 152314,
+      "ts": "10:28:45",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "ctaDetected",
+          "weight": 8,
+          "match": "CALL"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -12,
+          "match": "score=0.14,len=55"
+        }
+      ],
+      "caption": "RESEARCH AND CALLED COVENTRYDIRECT. THEY EXPLAINED LIFE",
+      "adLock": true
+    },
+    {
+      "elapsed": 157345,
+      "ts": "10:28:50",
+      "confidence": 66,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": "POLICY"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "THAT CAN BE SOLD. WE LEARNED WECOULD SELL ALL OF OUR POLICY, OR",
+      "adLock": true
+    },
+    {
+      "elapsed": 162353,
+      "ts": "10:28:55",
+      "confidence": 66,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": "POLICY"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "PAYMENTS. WHO KNEW? WE SOLD OURPOLICY. NOW WE CAN RELAX AND",
+      "adLock": true
+    },
+    {
+      "elapsed": 167396,
+      "ts": "10:29:00",
+      "confidence": 86,
+      "muted": true,
+      "reason": "AD_LOCK",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": "POLICY"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 26,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.08"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=347"
+        }
+      ],
+      "caption": "ENJOY OUR RETIREMENT AS WE HADPLANNED. IF YOU HAVE $100,000 OR",
+      "adLock": true
+    },
+    {
+      "elapsed": 172414,
+      "ts": "10:29:05",
+      "confidence": 84,
+      "muted": true,
+      "reason": "AD_LOCK",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": "POLICY"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.20"
+        }
+      ],
+      "caption": "QUALIFY TO SELL YOUR POLICY.DON'T CANCEL OR LET YOUR POLICY",
+      "adLock": true
+    },
+    {
+      "elapsed": 177487,
+      "ts": "10:29:10",
+      "confidence": 84,
+      "muted": true,
+      "reason": "AD_LOCK",
+      "signals": [
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": ".COM"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.13"
+        }
+      ],
+      "caption": "COVENTRYDIRECT.COM TO FIND OUTIF YOUR POLICY QUALIFIES. OR",
+      "adLock": true
+    },
+    {
+      "elapsed": 182503,
+      "ts": "10:29:15",
+      "confidence": 100,
+      "muted": true,
+      "reason": "AD_LOCK",
+      "signals": [
+        {
+          "source": "hardPhrase",
+          "weight": 40,
+          "match": "CALL THE NUMBER"
+        },
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": "CALL THE NUMBER"
+        },
+        {
+          "source": "ctaDetected",
+          "weight": 8,
+          "match": "CALL"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.25"
+        }
+      ],
+      "caption": "CALL THE NUMBER ON YOUR SCREEN.COVENTRY DIRECT, REDEFINING",
+      "adLock": true
+    },
+    {
+      "elapsed": 187520,
+      "ts": "10:29:20",
+      "confidence": 100,
+      "muted": true,
+      "reason": "AD_LOCK",
+      "signals": [
+        {
+          "source": "hardPhrase",
+          "weight": 40,
+          "match": "CALL THE NUMBER"
+        },
+        {
+          "source": "adContext",
+          "weight": 10,
+          "match": "CALL THE NUMBER"
+        },
+        {
+          "source": "ctaDetected",
+          "weight": 8,
+          "match": "CALL"
+        },
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.23"
+        },
+        {
+          "source": "captionLoss",
+          "weight": 9,
+          "match": "noCcMs=3598"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=299"
+        }
+      ],
+      "caption": "",
+      "adLock": true
+    },
+    {
+      "elapsed": 192537,
+      "ts": "10:29:25",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=17"
+        }
+      ],
+      "caption": "REDEFINING INSURANCE.",
+      "adLock": true
+    },
+    {
+      "elapsed": 197538,
+      "ts": "10:29:30",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=17"
+        }
+      ],
+      "caption": "REDEFINING INSURANCE.",
+      "adLock": true
+    },
+    {
+      "elapsed": 202567,
+      "ts": "10:29:35",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=43"
+        }
+      ],
+      "caption": "REDEFINING INSURANCE.>> DISCRETIONARY HAS BEEN A",
+      "adLock": true
+    },
+    {
+      "elapsed": 207592,
+      "ts": "10:29:40",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "BEEN GETTING TROUNCED BYSTAPLES SO FAR THIS YEAR. ITLOOKS PRE",
+      "adLock": true
+    },
+    {
+      "elapsed": 212600,
+      "ts": "10:29:45",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "CONSUMER CONFIDENCE BEAT. SOTHAT'S ONE THING. BUT THAT W",
+      "adLock": true
+    },
+    {
+      "elapsed": 217607,
+      "ts": "10:29:50",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "UNEXPECTED Q4 COMPS GROWTH. ANDTHAT STOCK WAS",
+      "adLock": true
+    },
+    {
+      "elapsed": 222664,
+      "ts": "10:29:55",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=48"
+        }
+      ],
+      "caption": "LOWE'S UP A LOT OF THE HOMEBUILDERS UP TODAY. CRUISES",
+      "adLock": true
+    },
+    {
+      "elapsed": 227673,
+      "ts": "10:30:01",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "CASINOS PART OF IT JIMMY PLAYSINTO",
+      "adLock": true
+    },
+    {
+      "elapsed": 232674,
+      "ts": "10:30:06",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "INTO THE HALO IDEA. CARVANA,WHICH JOE OWNS, HAS BEEN ON THE",
+      "adLock": true
+    },
+    {
+      "elapsed": 237681,
+      "ts": "10:30:11",
+      "confidence": 70,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.11"
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=46"
+        }
+      ],
+      "caption": "ON THE LIST. I READ EARLIERTODAY, TOO.>> YEAH. YOU",
+      "adLock": true
+    },
+    {
+      "elapsed": 242734,
+      "ts": "10:30:16",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "SOME OF THE LACKLUSTER RESPONSECONCERNING DISCRETIONARY STOCKS,IF",
+      "adLock": true
+    },
+    {
+      "elapsed": 247869,
+      "ts": "10:30:21",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "LITTLE TOO EXPENSIVE, NOT A LOTTOO EXPENSIVE, BUT A LITTLE TOO",
+      "adLock": true
+    },
+    {
+      "elapsed": 252892,
+      "ts": "10:30:26",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.13"
+        }
+      ],
+      "caption": "THE NAMES YOU BROUGHT UP, SCOTTWYNN. I THINK",
+      "adLock": true
+    },
+    {
+      "elapsed": 257908,
+      "ts": "10:30:31",
+      "confidence": 56,
+      "muted": true,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "HAS PULLED BACK FROM AROUND 130TO 110. I THINK IT JUST G",
+      "adLock": false
+    },
+    {
+      "elapsed": 262926,
+      "ts": "10:30:36",
+      "confidence": 56,
+      "muted": true,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "SKIS. DELTA AIR LINES, ANOTHERONE I MEAN LOOK WE ALL TRAVE",
+      "adLock": false
+    },
+    {
+      "elapsed": 267944,
+      "ts": "10:30:41",
+      "confidence": 56,
+      "muted": true,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "THEY'VE BEEN PACKED. AIRPORTSHAVE BEEN PACKED. DID IT MAYBEGET",
+      "adLock": false
+    },
+    {
+      "elapsed": 272960,
+      "ts": "10:30:46",
+      "confidence": 56,
+      "muted": true,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "CONCERNS ABOUT OIL PRICESRISING? TO ME, WHAT I'M SAYING",
+      "adLock": false
+    },
+    {
+      "elapsed": 277992,
+      "ts": "10:30:51",
+      "confidence": 62,
+      "muted": true,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=49"
+        }
+      ],
+      "caption": "LONG TERM TRENDS ARE WE'VE GOTLOW UNEMPLOYMENT, WE'VE",
+      "adLock": false
+    },
+    {
+      "elapsed": 283043,
+      "ts": "10:30:56",
+      "confidence": 66,
+      "muted": true,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": "GOING OUT AND DOING THINGS.MAYBE THEY'RE NOT DOING AS MUCH",
+      "adLock": false
+    },
+    {
+      "elapsed": 288152,
+      "ts": "10:31:01",
+      "confidence": 42,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=47"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=241"
+        }
+      ],
+      "caption": "AND GETTING EXPERIENCE.>> BUT JOE, THE I MEAN, IT'S",
+      "adLock": false
+    },
+    {
+      "elapsed": 293158,
+      "ts": "10:31:06",
+      "confidence": 42,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=46"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=232"
+        }
+      ],
+      "caption": "OUTPERFORMANCE STAPLES UP 15%YEAR TO DATE VERSUSDI",
+      "adLock": false
+    },
+    {
+      "elapsed": 298199,
+      "ts": "10:31:11",
+      "confidence": 5,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.21"
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=50"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "DOW"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=253"
+        }
+      ],
+      "caption": "HALF. NOW MAYBE, YOU KNOW,AFTER YOU HAD A TERRIBL",
+      "adLock": false
+    },
+    {
+      "elapsed": 303209,
+      "ts": "10:31:16",
+      "confidence": 62,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "urlOrPhone",
+          "weight": 10,
+          "match": null
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.20"
+        }
+      ],
+      "caption": "MONTH. SO YOU GET A NICE BOUNCE.MAYBE THIS IS NOW",
+      "adLock": false
+    },
+    {
+      "elapsed": 308288,
+      "ts": "10:31:21",
+      "confidence": 100,
+      "muted": true,
+      "reason": "AD_LOCK",
+      "signals": [
+        {
+          "source": "hardPhrase",
+          "weight": 40,
+          "match": "TTY"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        }
+      ],
+      "caption": "PRETTY DISAPPOINTING.>> I'M NOT SURE THAT IT DOES.",
+      "adLock": true
+    },
+    {
+      "elapsed": 313436,
+      "ts": "10:31:26",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=24"
+        }
+      ],
+      "caption": "CONSUMER.>> GOT A LOT OF NAMES",
+      "adLock": true
+    },
+    {
+      "elapsed": 318449,
+      "ts": "10:31:31",
+      "confidence": 65,
+      "muted": true,
+      "reason": "AD_LOCK_FADING",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        }
+      ],
+      "caption": ">> LDS, TJX, BURLINGTON, DELTA,LIVE NATION, ULTA, PULTE, ROYALCARIBBEAN.",
+      "adLock": true
+    },
+    {
+      "elapsed": 323555,
+      "ts": "10:31:36",
+      "confidence": 1,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "brandDetected",
+          "weight": 4,
+          "match": "EXPEDIA"
+        },
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=40"
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "DOW"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=206"
+        }
+      ],
+      "caption": "SEEING A BREAKDOWN IN THEMOMENTUM. EXPEDIA CAN",
+      "adLock": false
+    },
+    {
+      "elapsed": 328589,
+      "ts": "10:31:41",
+      "confidence": 0,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "textFeatures",
+          "weight": 6,
+          "match": null
+        },
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "DOW"
+        }
+      ],
+      "caption": "BREAKDOWN DASH, CARVANA, LASVEGAS SANDS",
+      "adLock": false
+    }
+  ],
+  "captions": []
+}

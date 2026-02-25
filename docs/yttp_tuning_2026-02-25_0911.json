@@ -1,0 +1,1863 @@
+{
+  "version": "4.3.5",
+  "reportType": "tuning_session",
+  "sessionId": "tuning-2026-02-25T16-11-19",
+  "startTime": "2026-02-25T16:06:10.869Z",
+  "endTime": "2026-02-25T16:11:19.953Z",
+  "durationMs": 309084,
+  "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+  "settings": {
+    "confidenceThreshold": 63,
+    "minAdLockMs": 45000,
+    "muteOnNoCCDelayMs": 2500,
+    "programVotesNeeded": 2,
+    "programQuorumLines": 3,
+    "captionWindowSize": 5
+  },
+  "userFeedback": {
+    "hadCommercials": "no",
+    "incorrectStateLocation": "show_muted",
+    "notes": ""
+  },
+  "stats": {
+    "totalSnapshots": 60,
+    "mutedSnapshots": 5,
+    "mutePercent": 8,
+    "avgConfidence": 33,
+    "totalFlags": 7,
+    "falsePositives": 4,
+    "falseNegatives": 3
+  },
+  "flags": [
+    {
+      "timestamp": "2026-02-25T16:06:27.760Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "DO YOU MEAN SORT OF EXTRA FREEMONEY THAT WILL GO FIND ITS W",
+      "lastNLines": [
+        "DO YOU MEAN SORT OF EXTRA FREEMONEY THAT WILL GO",
+        "DO YOU MEAN SORT OF EXTRA FREEMONEY THAT WILL GO FIN",
+        "DO YOU MEAN SORT OF EXTRA FREEMONEY THAT WILL GO FIND",
+        "DO YOU MEAN SORT OF EXTRA FREEMONEY THAT WILL GO FIND ITS",
+        "DO YOU MEAN SORT OF EXTRA FREEMONEY THAT WILL GO FIND ITS W"
+      ],
+      "confidence": 50,
+      "signals": [],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-25T16:06:53.402Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "THINGS. YOU NEED GOOD ECONOMYAND SPECULATION. AND I THINK",
+      "lastNLines": [
+        "THINGS. YOU NEED GOOD ECONOMYAND SPECULATION. AN",
+        "THINGS. YOU NEED GOOD ECONOMYAND SPECULATION. AND",
+        "THINGS. YOU NEED GOOD ECONOMYAND SPECULATION. AND I",
+        "THINGS. YOU NEED GOOD ECONOMYAND SPECULATION. AND I T",
+        "THINGS. YOU NEED GOOD ECONOMYAND SPECULATION. AND I THINK"
+      ],
+      "confidence": 58,
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.11"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-25T16:08:32.991Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "SEE THAT CYCLICAL REBOUND INTHE OVERALL ECONOMY BECAUSE O",
+      "lastNLines": [
+        "SEE THAT CYCLICAL REBOUND INTHE OVERALL ECONOMY",
+        "SEE THAT CYCLICAL REBOUND INTHE OVERALL ECONOMY B",
+        "SEE THAT CYCLICAL REBOUND INTHE OVERALL ECONOMY BEC",
+        "SEE THAT CYCLICAL REBOUND INTHE OVERALL ECONOMY BECAUSE",
+        "SEE THAT CYCLICAL REBOUND INTHE OVERALL ECONOMY BECAUSE O"
+      ],
+      "confidence": 42,
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=263"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-25T16:09:06.123Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "STARTS TO PICK UP, THAT THEBUDGET",
+      "lastNLines": [
+        "YOU'RE RIGHT, THAT ADOPTIONSTARTS TO PICK UP, THAT T",
+        "YOU'RE RIGHT, THAT ADOPTIONSTARTS TO PICK UP, THAT THE",
+        "STARTS TO PICK UP, THAT THE",
+        "STARTS TO PICK UP, THAT THEBUDG",
+        "STARTS TO PICK UP, THAT THEBUDGET"
+      ],
+      "confidence": 56,
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=39"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-25T16:09:10.074Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "TO GET MADE, AND YOU'LL STARTTO SEE INCREMENTALLY HIGHER",
+      "lastNLines": [
+        "TO GET MADE, AND YOU'LL STARTTO SEE INCREMENTAL",
+        "TO GET MADE, AND YOU'LL STARTTO SEE INCREMENTALLY",
+        "TO GET MADE, AND YOU'LL STARTTO SEE INCREMENTALLY H",
+        "TO GET MADE, AND YOU'LL STARTTO SEE INCREMENTALLY HIGHE",
+        "TO GET MADE, AND YOU'LL STARTTO SEE INCREMENTALLY HIGHER"
+      ],
+      "confidence": 58,
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.11"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    },
+    {
+      "timestamp": "2026-02-25T16:09:28.115Z",
+      "action": "FALSE_NEGATIVE",
+      "softFlag": true,
+      "wasMuted": false,
+      "captionText": "FORECAST THAT YOU WORRY ABOUT?>> YEAH, I THINK",
+      "lastNLines": [
+        "OF THE BIG RISKS TO YOURFORECAST THAT YOU WORRY ABOUT?>> YEAH,",
+        "OF THE BIG RISKS TO YOURFORECAST THAT YOU WORRY ABOUT?>> YEAH, I T",
+        "OF THE BIG RISKS TO YOURFORECAST THAT YOU WORRY ABOUT?>> YEAH, I THI",
+        "OF THE BIG RISKS TO YOURFORECAST THAT YOU WORRY ABOUT?>> YEAH, I THINK",
+        "FORECAST THAT YOU WORRY ABOUT?>> YEAH, I THINK"
+      ],
+      "confidence": 19,
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.13"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -12,
+          "match": "score=0.13,len=46"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 3
+    },
+    {
+      "timestamp": "2026-02-25T16:10:47.003Z",
+      "action": "FALSE_POSITIVE",
+      "softFlag": true,
+      "wasMuted": true,
+      "captionText": "DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND",
+      "lastNLines": [
+        "REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE THEMOVE",
+        "REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE THEMOVE T",
+        "REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE THEMOVE TO",
+        "REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE THEMOVE TO AND",
+        "DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND"
+      ],
+      "confidence": 58,
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.13"
+        }
+      ],
+      "adLockActive": false,
+      "url": "https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D",
+      "programQuorum": 0
+    }
+  ],
+  "snapshots": [
+    {
+      "elapsed": 18,
+      "ts": "09:06:10",
+      "confidence": 58,
+      "muted": true,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.08"
+        }
+      ],
+      "caption": "IT. YOU KNOW, ABOUT 20 TO 25%OF RETAIL TRADES ARE IN OPTIO",
+      "adLock": false
+    },
+    {
+      "elapsed": 5026,
+      "ts": "09:06:15",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=44"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.03,len=224"
+        }
+      ],
+      "caption": "WITH EXTRA MONEY IN THEIRPO",
+      "adLock": false
+    },
+    {
+      "elapsed": 10051,
+      "ts": "09:06:20",
+      "confidence": 21,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=44"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=226"
+        }
+      ],
+      "caption": ">> THAT'S WHY I WAS GOING TOASK WHAT YOU MEANT BY",
+      "adLock": false
+    },
+    {
+      "elapsed": 15169,
+      "ts": "09:06:26",
+      "confidence": 64,
+      "muted": true,
+      "reason": "CONFIDENCE_HIGH",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.09"
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=49"
+        }
+      ],
+      "caption": "RUSSELL 2000 TO WORK. SO WHATDO YOU MEAN SORT OF EXTRA",
+      "adLock": false
+    },
+    {
+      "elapsed": 20320,
+      "ts": "09:06:31",
+      "confidence": 21,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=42"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=214"
+        }
+      ],
+      "caption": ">> YEAH, EXACTLY. AND IF YOULOOK AT THE",
+      "adLock": false
+    },
+    {
+      "elapsed": 25346,
+      "ts": "09:06:36",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=45"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=231"
+        }
+      ],
+      "caption": "GOOD OLD CYCLICAL INDEX. I MEAN,THERE'S STILL A LOT",
+      "adLock": false
+    },
+    {
+      "elapsed": 30418,
+      "ts": "09:06:41",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=42"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=215"
+        }
+      ],
+      "caption": "INDUSTRIAL COMPANIES. BUTTHERE'S A LOT A",
+      "adLock": false
+    },
+    {
+      "elapsed": 35436,
+      "ts": "09:06:46",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=46"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=236"
+        }
+      ],
+      "caption": "SMALLER. THERE ARE A LOT OFNUCLEAR",
+      "adLock": false
+    },
+    {
+      "elapsed": 40484,
+      "ts": "09:06:51",
+      "confidence": 58,
+      "muted": false,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.22"
+        }
+      ],
+      "caption": "SPECULATIVE. SO YOU NEED BOTHTHINGS. YOU NEED GOOD ECONOMY",
+      "adLock": false
+    },
+    {
+      "elapsed": 45511,
+      "ts": "09:06:56",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.10"
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=46"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=232"
+        }
+      ],
+      "caption": "INWE'RE GOING TO GET BOTH.>> A LOT OF NON EARNERS IN",
+      "adLock": false
+    },
+    {
+      "elapsed": 50545,
+      "ts": "09:07:01",
+      "confidence": 64,
+      "muted": true,
+      "reason": "CONFIDENCE_HIGH",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.17"
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=47"
+        }
+      ],
+      "caption": "OF THE COMPONENTS THAT YOU LIKEIN",
+      "adLock": false
+    },
+    {
+      "elapsed": 55580,
+      "ts": "09:07:06",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=30"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=156"
+        }
+      ],
+      "caption": "POSITIONING IS THERE.EVALUATION IS",
+      "adLock": false
+    },
+    {
+      "elapsed": 60622,
+      "ts": "09:07:11",
+      "confidence": 21,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=40"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=202"
+        }
+      ],
+      "caption": "UPSIDE THERE.>> BUT IS THERE",
+      "adLock": false
+    },
+    {
+      "elapsed": 65640,
+      "ts": "09:07:16",
+      "confidence": 30,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=262"
+        }
+      ],
+      "caption": "PWHEN IT COMES TO IMPLEMENTINGAI THAT'S GOING TO SHOW UP",
+      "adLock": false
+    },
+    {
+      "elapsed": 70716,
+      "ts": "09:07:21",
+      "confidence": 21,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=43"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=219"
+        }
+      ],
+      "caption": ">> YEAH. GREAT QUESTION. AND ITHINK THAT'S",
+      "adLock": false
+    },
+    {
+      "elapsed": 75779,
+      "ts": "09:07:26",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=46"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=234"
+        }
+      ],
+      "caption": "SMALLER COMPANIES. WHAT'SREALLY INTERESTING IS THAT",
+      "adLock": false
+    },
+    {
+      "elapsed": 80926,
+      "ts": "09:07:31",
+      "confidence": 30,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=267"
+        }
+      ],
+      "caption": "SINCE CHATGPT CAME OUT, WEACTUALLY SAW PROBABLY HUGEGAINS",
+      "adLock": false
+    },
+    {
+      "elapsed": 85930,
+      "ts": "09:07:36",
+      "confidence": 30,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=265"
+        }
+      ],
+      "caption": "BEFORE THE RUSSELL 2000. WEACTUALLY SAW PRODUCTIVITY FALL",
+      "adLock": false
+    },
+    {
+      "elapsed": 90933,
+      "ts": "09:07:41",
+      "confidence": 30,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=298"
+        }
+      ],
+      "caption": "SECTOR COMPOSITION. IT WASREALLY SIZE.",
+      "adLock": false
+    },
+    {
+      "elapsed": 96031,
+      "ts": "09:07:46",
+      "confidence": 42,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=269"
+        }
+      ],
+      "caption": "THAT TALKED ABOUT AI DURINGEARNINGS",
+      "adLock": false
+    },
+    {
+      "elapsed": 101094,
+      "ts": "09:07:51",
+      "confidence": 0,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "S&P"
+        }
+      ],
+      "caption": "S&P TALKED ABOUT AI THAN THERUSSELL THA",
+      "adLock": false
+    },
+    {
+      "elapsed": 106228,
+      "ts": "09:07:57",
+      "confidence": 15,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=304"
+        }
+      ],
+      "caption": ">> SO I THINK I THINK THEY'RESMALLER COMPANIES ARE JUST LATETO THE",
+      "adLock": false
+    },
+    {
+      "elapsed": 111245,
+      "ts": "09:08:02",
+      "confidence": 32,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.11"
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=50"
+        },
+        {
+          "source": "conversational",
+          "weight": -20,
+          "match": "score=0.22,len=252"
+        }
+      ],
+      "caption": "WHEN THEY THEY START ADOPTINGAI. AND I THI",
+      "adLock": false
+    },
+    {
+      "elapsed": 116272,
+      "ts": "09:08:07",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=43"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=219"
+        }
+      ],
+      "caption": "HAPPEN. THE MULTIPLIER EFFECTOF LOWER LABOR COSTS",
+      "adLock": false
+    },
+    {
+      "elapsed": 121302,
+      "ts": "09:08:12",
+      "confidence": 0,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "S&P"
+        }
+      ],
+      "caption": "BIGGER FOR THE RUSSELL TWO.IT'S TWO TIMES FOR FOR THE S&P.IT'S",
+      "adLock": false
+    },
+    {
+      "elapsed": 126325,
+      "ts": "09:08:17",
+      "confidence": 23,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.14"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=369"
+        }
+      ],
+      "caption": ">> RIGHT. NOW THAT MAKES SENSE.ARE YOU THEN ARE YOU A BUYER OFTHE NOTION THAT",
+      "adLock": false
+    },
+    {
+      "elapsed": 131337,
+      "ts": "09:08:22",
+      "confidence": 21,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=48"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=242"
+        }
+      ],
+      "caption": ">> SO IF I HAVE TO GUESS FORTHIS YEAR, I THINK THE JOB",
+      "adLock": false
+    },
+    {
+      "elapsed": 136363,
+      "ts": "09:08:27",
+      "confidence": 30,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=349"
+        }
+      ],
+      "caption": "MORE NEUTRAL BECAUSE WE HAVETHAT SECULAR HEADWIND FROM AI.BUT AT THE SAME",
+      "adLock": false
+    },
+    {
+      "elapsed": 141376,
+      "ts": "09:08:32",
+      "confidence": 58,
+      "muted": true,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.08"
+        }
+      ],
+      "caption": "RIGHT? IF WE REALLY START TOSEE THAT CYCLICAL REBOUND INTHE OVERALL ECONO",
+      "adLock": false
+    },
+    {
+      "elapsed": 146445,
+      "ts": "09:08:37",
+      "confidence": 42,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=333"
+        }
+      ],
+      "caption": "TAX RETURNS, THEN I THINKEARNINGS ARE GOING TO",
+      "adLock": false
+    },
+    {
+      "elapsed": 151495,
+      "ts": "09:08:42",
+      "confidence": 42,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=284"
+        }
+      ],
+      "caption": "HAS BEEN REALLY THE EARNINGSCYCLE HISTORICALLY, EXCEPT THIS",
+      "adLock": false
+    },
+    {
+      "elapsed": 156543,
+      "ts": "09:08:47",
+      "confidence": 42,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=288"
+        }
+      ],
+      "caption": "TWO THINGS THAT HAPPENED THISTIME, WHICH WAS ONE, BECAUSE OF",
+      "adLock": false
+    },
+    {
+      "elapsed": 161561,
+      "ts": "09:08:52",
+      "confidence": 56,
+      "muted": false,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=40"
+        }
+      ],
+      "caption": "JOB MARKET, BUT ALSO BE A LOTOF THE EARNINGS",
+      "adLock": false
+    },
+    {
+      "elapsed": 166713,
+      "ts": "09:08:57",
+      "confidence": 38,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.10"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=335"
+        }
+      ],
+      "caption": "IF EARNINGS REALLY START TOBROADEN OUT, THEN I",
+      "adLock": false
+    },
+    {
+      "elapsed": 171753,
+      "ts": "09:09:02",
+      "confidence": 15,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=304"
+        }
+      ],
+      "caption": "THE COROLLARY WOULD BE IN THEBACK HALF OF",
+      "adLock": false
+    },
+    {
+      "elapsed": 176884,
+      "ts": "09:09:07",
+      "confidence": 42,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=260"
+        }
+      ],
+      "caption": "BUDGET PLANS FOR 27 WILL STARTTO",
+      "adLock": false
+    },
+    {
+      "elapsed": 181906,
+      "ts": "09:09:12",
+      "confidence": 42,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=256"
+        }
+      ],
+      "caption": "LAYOFFS, OR AT LEAST LOWERHIRING FOR THE FOLLOWING YEAR.",
+      "adLock": false
+    },
+    {
+      "elapsed": 186939,
+      "ts": "09:09:17",
+      "confidence": 36,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=50"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=252"
+        }
+      ],
+      "caption": "GOING TO BE NO HIRING, NOFIRING TYPE OF ENVIRONMENT IN",
+      "adLock": false
+    },
+    {
+      "elapsed": 191955,
+      "ts": "09:09:22",
+      "confidence": 21,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=36"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=182"
+        }
+      ],
+      "caption": "OTHERS.>> SO WHAT? SO WHAT COULD GOWRONG?",
+      "adLock": false
+    },
+    {
+      "elapsed": 197008,
+      "ts": "09:09:27",
+      "confidence": 19,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.13"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -12,
+          "match": "score=0.13,len=46"
+        }
+      ],
+      "caption": "FORECAST THAT YOU WORRY ABOUT?>> YEAH, I THINK",
+      "adLock": false
+    },
+    {
+      "elapsed": 202033,
+      "ts": "09:09:32",
+      "confidence": 30,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=258"
+        }
+      ],
+      "caption": "SECOND HALF INFLATIONREACCELERATION I DON'T THINK",
+      "adLock": false
+    },
+    {
+      "elapsed": 207077,
+      "ts": "09:09:37",
+      "confidence": 30,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=296"
+        }
+      ],
+      "caption": "BEARISH IF THE FED IS OKAY WITHIT. AND IF THE ADMINISTRATIONAND",
+      "adLock": false
+    },
+    {
+      "elapsed": 212089,
+      "ts": "09:09:42",
+      "confidence": 30,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=266"
+        }
+      ],
+      "caption": "IT HARD AND SORT OF LIKEINFLATE OUT OF THIS FISCAL",
+      "adLock": false
+    },
+    {
+      "elapsed": 217099,
+      "ts": "09:09:47",
+      "confidence": 36,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=48"
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=242"
+        }
+      ],
+      "caption": "THAT'S HAPPENING. AND THAT'SWHY GOLD IS RIPPING. AND",
+      "adLock": false
+    },
+    {
+      "elapsed": 222125,
+      "ts": "09:09:52",
+      "confidence": 42,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=292"
+        }
+      ],
+      "caption": "THINK THE PERFECT EXAMPLE OFDEBASEMENT TRADE IS J",
+      "adLock": false
+    },
+    {
+      "elapsed": 227129,
+      "ts": "09:09:58",
+      "confidence": 42,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=256"
+        }
+      ],
+      "caption": "MEAN, THE TRADE IS FXCOLLAPSING, RATES RIPPING ANDSTOCKS",
+      "adLock": false
+    },
+    {
+      "elapsed": 232140,
+      "ts": "09:10:03",
+      "confidence": 15,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=336"
+        }
+      ],
+      "caption": ">> HERE. ALTHOUGH, I MEAN, THEPRESIDENT HAS MADE SUCH",
+      "adLock": false
+    },
+    {
+      "elapsed": 237140,
+      "ts": "09:10:08",
+      "confidence": 21,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=43"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=220"
+        }
+      ],
+      "caption": "THAT HE BE OKAY WITH THAT?>> I THINK THE LONG END",
+      "adLock": false
+    },
+    {
+      "elapsed": 242177,
+      "ts": "09:10:13",
+      "confidence": 30,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=328"
+        }
+      ],
+      "caption": "AT AROUND THESE LEVELS BECAUSEOF FISCAL ISSUES AND POTENTIALINFLATION.",
+      "adLock": false
+    },
+    {
+      "elapsed": 247200,
+      "ts": "09:10:18",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.08"
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=43"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=221"
+        }
+      ],
+      "caption": "BEARISH FOR EQUITIES.>> RIGHT. WHAT IS YOUR TARGET",
+      "adLock": false
+    },
+    {
+      "elapsed": 252232,
+      "ts": "09:10:23",
+      "confidence": 21,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=40"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=203"
+        }
+      ],
+      "caption": ">> GOLD I'M STILL BULLISH ONGOLD THOUGH RIGHT.",
+      "adLock": false
+    },
+    {
+      "elapsed": 257247,
+      "ts": "09:10:28",
+      "confidence": 30,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=274"
+        }
+      ],
+      "caption": "THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEAR AND A HALF AGO.",
+      "adLock": false
+    },
+    {
+      "elapsed": 262275,
+      "ts": "09:10:33",
+      "confidence": 30,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=308"
+        }
+      ],
+      "caption": "ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOURRUSSEL",
+      "adLock": false
+    },
+    {
+      "elapsed": 267280,
+      "ts": "09:10:38",
+      "confidence": 0,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "S&P"
+        }
+      ],
+      "caption": "LOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE S&P VERSUS THE",
+      "adLock": false
+    },
+    {
+      "elapsed": 272296,
+      "ts": "09:10:43",
+      "confidence": 0,
+      "muted": false,
+      "reason": "PROGRAM_CONFIRMED",
+      "signals": [
+        {
+          "source": "programAllow",
+          "weight": -45,
+          "match": "S&P"
+        }
+      ],
+      "caption": "THE S&P. AND THE ASSET LIGHTCOMPANIES OBVIOUSLY HAVE DONEREALLY",
+      "adLock": false
+    },
+    {
+      "elapsed": 277297,
+      "ts": "09:10:48",
+      "confidence": 64,
+      "muted": true,
+      "reason": "CONFIDENCE_HIGH",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.09"
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=49"
+        }
+      ],
+      "caption": "DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE RISE TO",
+      "adLock": false
+    },
+    {
+      "elapsed": 282320,
+      "ts": "09:10:53",
+      "confidence": 56,
+      "muted": false,
+      "reason": "BUILDING_QUORUM",
+      "signals": [
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=41"
+        }
+      ],
+      "caption": "I MEAN, IF AI IS REALLY THATGOOD, WE NEE",
+      "adLock": false
+    },
+    {
+      "elapsed": 287432,
+      "ts": "09:10:58",
+      "confidence": 42,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=281"
+        }
+      ],
+      "caption": "POWER. AND I THINK IT'S GOINGTO BE MORE C",
+      "adLock": false
+    },
+    {
+      "elapsed": 292433,
+      "ts": "09:11:03",
+      "confidence": 42,
+      "muted": false,
+      "reason": "LOW_CONFIDENCE",
+      "signals": [
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=375"
+        }
+      ],
+      "caption": "FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, W",
+      "adLock": false
+    },
+    {
+      "elapsed": 297466,
+      "ts": "09:11:08",
+      "confidence": 29,
+      "muted": false,
+      "reason": "PROGRAM_QUORUM_MET",
+      "signals": [
+        {
+          "source": "imperativeVoice",
+          "weight": 8,
+          "match": "ratio=0.11"
+        },
+        {
+          "source": "shortPunchyLines",
+          "weight": 6,
+          "match": "avgLen=21"
+        },
+        {
+          "source": "speakerMarker",
+          "weight": -15,
+          "match": null
+        },
+        {
+          "source": "conversational",
+          "weight": -8,
+          "match": "score=0.00,len=107"
+        }
+      ],
+      "caption": "ECONOMY.>> AND THEN YOU S",
+      "adLock": false
+    }
+  ],
+  "captions": [
+    "[09:10:21] >> TARGET TARGET ON.>> GOL",
+    "[09:10:21] >> TARGET TARGET ON.>> GOLD I'",
+    "[09:10:21] >> TARGET TARGET ON.>> GOLD I'M",
+    "[09:10:21] >> TARGET TARGET ON.>> GOLD I'M STI",
+    "[09:10:21] >> TARGET TARGET ON.>> GOLD I'M STILL",
+    "[09:10:22] >> TARGET TARGET ON.>> GOLD I'M STILL BULLI",
+    "[09:10:22] >> TARGET TARGET ON.>> GOLD I'M STILL BULLISH O",
+    "[09:10:22] >> TARGET TARGET ON.>> GOLD I'M STILL BULLISH ON",
+    "[09:10:22] >> TARGET TARGET ON.>> GOLD I'M STILL BULLISH ONGO",
+    "[09:10:22] >> TARGET TARGET ON.>> GOLD I'M STILL BULLISH ONGOLD",
+    "[09:10:22] >> GOLD I'M STILL BULLISH ONGOLD",
+    "[09:10:22] >> GOLD I'M STILL BULLISH ONGOLD T",
+    "[09:10:22] >> GOLD I'M STILL BULLISH ONGOLD THOUG",
+    "[09:10:22] >> GOLD I'M STILL BULLISH ONGOLD THOUGH",
+    "[09:10:23] >> GOLD I'M STILL BULLISH ONGOLD THOUGH RI",
+    "[09:10:23] >> GOLD I'M STILL BULLISH ONGOLD THOUGH RIGHT.",
+    "[09:10:23] >> GOLD I'M STILL BULLISH ONGOLD THOUGH RIGHT.>>",
+    "[09:10:23] >> GOLD I'M STILL BULLISH ONGOLD THOUGH RIGHT.>> F",
+    "[09:10:23] >> GOLD I'M STILL BULLISH ONGOLD THOUGH RIGHT.>> FINAL",
+    "[09:10:23] >> GOLD I'M STILL BULLISH ONGOLD THOUGH RIGHT.>> FINALLY",
+    "[09:10:23] >> GOLD I'M STILL BULLISH ONGOLD THOUGH RIGHT.>> FINALLY,",
+    "[09:10:23] GOLD THOUGH RIGHT.>> FINALLY,",
+    "[09:10:23] GOLD THOUGH RIGHT.>> FINALLY, Y",
+    "[09:10:23] GOLD THOUGH RIGHT.>> FINALLY, YOU",
+    "[09:10:23] GOLD THOUGH RIGHT.>> FINALLY, YOU K",
+    "[09:10:23] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW",
+    "[09:10:24] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW A",
+    "[09:10:24] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW A YEAR",
+    "[09:10:24] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW A YEAR A",
+    "[09:10:24] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW A YEAR AGO",
+    "[09:10:25] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW A YEAR AGOTH",
+    "[09:10:25] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW A YEAR AGOTHE",
+    "[09:10:25] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW A YEAR AGOTHE AC",
+    "[09:10:25] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW A YEAR AGOTHE ACRONY",
+    "[09:10:25] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW A YEAR AGOTHE ACRONYM",
+    "[09:10:25] GOLD THOUGH RIGHT.>> FINALLY, YOU KNOW A YEAR AGOTHE ACRONYM WAS",
+    "[09:10:25] >> FINALLY, YOU KNOW A YEAR AGOTHE ACRONYM WAS",
+    "[09:10:25] >> FINALLY, YOU KNOW A YEAR AGOTHE ACRONYM WAS F",
+    "[09:10:25] >> FINALLY, YOU KNOW A YEAR AGOTHE ACRONYM WAS FAN",
+    "[09:10:25] >> FINALLY, YOU KNOW A YEAR AGOTHE ACRONYM WAS FANG. O",
+    "[09:10:25] >> FINALLY, YOU KNOW A YEAR AGOTHE ACRONYM WAS FANG. OR",
+    "[09:10:26] >> FINALLY, YOU KNOW A YEAR AGOTHE ACRONYM WAS FANG. OR MA",
+    "[09:10:26] >> FINALLY, YOU KNOW A YEAR AGOTHE ACRONYM WAS FANG. OR MAYBE",
+    "[09:10:26] >> FINALLY, YOU KNOW A YEAR AGOTHE ACRONYM WAS FANG. OR MAYBEIT",
+    "[09:10:26] THE ACRONYM WAS FANG. OR MAYBEIT",
+    "[09:10:26] THE ACRONYM WAS FANG. OR MAYBEIT WAS",
+    "[09:10:26] THE ACRONYM WAS FANG. OR MAYBEIT WAS A",
+    "[09:10:27] THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEA",
+    "[09:10:27] THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEAR",
+    "[09:10:27] THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEAR AN",
+    "[09:10:27] THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEAR AND",
+    "[09:10:27] THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEAR AND A",
+    "[09:10:27] THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEAR AND A H",
+    "[09:10:27] THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEAR AND A HALF",
+    "[09:10:28] THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEAR AND A HALF AG",
+    "[09:10:28] THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEAR AND A HALF AGO.",
+    "[09:10:28] THE ACRONYM WAS FANG. OR MAYBEIT WAS A YEAR AND A HALF AGO.NOW",
+    "[09:10:28] IT WAS A YEAR AND A HALF AGO.NOW",
+    "[09:10:28] IT WAS A YEAR AND A HALF AGO.NOW I",
+    "[09:10:28] IT WAS A YEAR AND A HALF AGO.NOW IT'",
+    "[09:10:28] IT WAS A YEAR AND A HALF AGO.NOW IT'S",
+    "[09:10:28] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS",
+    "[09:10:29] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS H",
+    "[09:10:29] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HAL",
+    "[09:10:29] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO TH",
+    "[09:10:29] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THIN",
+    "[09:10:29] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING",
+    "[09:10:29] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING H",
+    "[09:10:29] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING HEAVY",
+    "[09:10:30] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING HEAVYAS",
+    "[09:10:30] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING HEAVYASSE",
+    "[09:10:30] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING HEAVYASSET LO",
+    "[09:10:30] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING HEAVYASSET LOW",
+    "[09:10:30] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING HEAVYASSET LOW OBSO",
+    "[09:10:30] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLE",
+    "[09:10:30] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESC",
+    "[09:10:30] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE",
+    "[09:10:30] IT WAS A YEAR AND A HALF AGO.NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE.",
+    "[09:10:30] NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE.",
+    "[09:10:30] NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE. I",
+    "[09:10:30] NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE. IT",
+    "[09:10:30] NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE. IT KI",
+    "[09:10:30] NDNOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE. IT KIND",
+    "[09:10:31] NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE. IT KIND",
+    "[09:10:31] NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE. IT KINDOF",
+    "[09:10:31] NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE. IT KINDOF I",
+    "[09:10:31] NOW IT'S THIS HALO THING HEAVYASSET LOW OBSOLESCENCE. IT KINDOF IT",
+    "[09:10:31] ASSET LOW OBSOLESCENCE. IT KINDOF IT",
+    "[09:10:31] ASSET LOW OBSOLESCENCE. IT KINDOF IT K",
+    "[09:10:31] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND",
+    "[09:10:32] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF",
+    "[09:10:32] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MEL",
+    "[09:10:32] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS",
+    "[09:10:32] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WIT",
+    "[09:10:32] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH",
+    "[09:10:32] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOU",
+    "[09:10:32] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOUR",
+    "[09:10:33] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOURRUSS",
+    "[09:10:33] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOURRUSSEL",
+    "[09:10:33] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOURRUSSELL TH",
+    "[09:10:33] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOURRUSSELL THES",
+    "[09:10:33] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOURRUSSELL THESIS",
+    "[09:10:33] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DO",
+    "[09:10:33] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DOES",
+    "[09:10:33] ASSET LOW OBSOLESCENCE. IT KINDOF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DOESN'T",
+    "[09:10:33] OF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DOESN'T",
+    "[09:10:33] OF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DOESN'T IT.",
+    "[09:10:34] OF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DOESN'T IT.>>",
+    "[09:10:34] OF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DOESN'T IT.>> Y",
+    "[09:10:34] OF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DOESN'T IT.>> YEAH.",
+    "[09:10:34] OF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DOESN'T IT.>> YEAH. Y",
+    "[09:10:34] OF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DOESN'T IT.>> YEAH. YEA",
+    "[09:10:34] OF IT KIND OF MELDS WITH YOURRUSSELL THESIS, DOESN'T IT.>> YEAH. YEAH.",
+    "[09:10:34] RUSSELL THESIS, DOESN'T IT.>> YEAH. YEAH.",
+    "[09:10:34] RUSSELL THESIS, DOESN'T IT.>> YEAH. YEAH. A",
+    "[09:10:34] RUSSELL THESIS, DOESN'T IT.>> YEAH. YEAH. AND",
+    "[09:10:34] RUSSELL THESIS, DOESN'T IT.>> YEAH. YEAH. AND WE",
+    "[09:10:35] RUSSELL THESIS, DOESN'T IT.>> YEAH. YEAH. AND WE AL",
+    "[09:10:35] RUSSELL THESIS, DOESN'T IT.>> YEAH. YEAH. AND WE ALSO",
+    "[09:10:35] RUSSELL THESIS, DOESN'T IT.>> YEAH. YEAH. AND WE ALSOLOOK",
+    "[09:10:35] RUSSELL THESIS, DOESN'T IT.>> YEAH. YEAH. AND WE ALSOLOOKED",
+    "[09:10:35] >> YEAH. YEAH. AND WE ALSOLOOKED",
+    "[09:10:35] >> YEAH. YEAH. AND WE ALSOLOOKED A",
+    "[09:10:35] >> YEAH. YEAH. AND WE ALSOLOOKED AT",
+    "[09:10:35] >> YEAH. YEAH. AND WE ALSOLOOKED AT TH",
+    "[09:10:35] E >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MO",
+    "[09:10:36] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MO",
+    "[09:10:36] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST",
+    "[09:10:36] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST ASS",
+    "[09:10:36] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST ASSET",
+    "[09:10:36] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST ASSET HEA",
+    "[09:10:36] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST ASSET HEAVY",
+    "[09:10:37] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST ASSET HEAVYCO",
+    "[09:10:37] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST ASSET HEAVYCOMPAN",
+    "[09:10:37] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST ASSET HEAVYCOMPANIE",
+    "[09:10:37] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST ASSET HEAVYCOMPANIES",
+    "[09:10:37] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST ASSET HEAVYCOMPANIES IN T",
+    "[09:10:37] >> YEAH. YEAH. AND WE ALSOLOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE",
+    "[09:10:37] LOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE",
+    "[09:10:37] LOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE S",
+    "[09:10:37] LOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE S&P",
+    "[09:10:37] LOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE S&P VER",
+    "[09:10:38] LOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE S&P VERSU",
+    "[09:10:38] LOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE S&P VERSUS",
+    "[09:10:38] LOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE S&P VERSUS THE",
+    "[09:10:38] LOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE S&P VERSUS THEMO",
+    "[09:10:38] LOOKED AT THE MOST ASSET HEAVYCOMPANIES IN THE S&P VERSUS THEMOST",
+    "[09:10:38] COMPANIES IN THE S&P VERSUS THEMOST",
+    "[09:10:38] COMPANIES IN THE S&P VERSUS THEMOST ASS",
+    "[09:10:38] COMPANIES IN THE S&P VERSUS THEMOST ASSET",
+    "[09:10:38] COMPANIES IN THE S&P VERSUS THEMOST ASSET L",
+    "[09:10:39] COMPANIES IN THE S&P VERSUS THEMOST ASSET LIKE",
+    "[09:10:39] COMPANIES IN THE S&P VERSUS THEMOST ASSET LIKE C",
+    "[09:10:39] COMPANIES IN THE S&P VERSUS THEMOST ASSET LIKE COMPA",
+    "[09:10:39] COMPANIES IN THE S&P VERSUS THEMOST ASSET LIKE COMPANI",
+    "[09:10:39] COMPANIES IN THE S&P VERSUS THEMOST ASSET LIKE COMPANIES",
+    "[09:10:39] COMPANIES IN THE S&P VERSUS THEMOST ASSET LIKE COMPANIES IN",
+    "[09:10:39] COMPANIES IN THE S&P VERSUS THEMOST ASSET LIKE COMPANIES INTH",
+    "[09:10:40] COMPANIES IN THE S&P VERSUS THEMOST ASSET LIKE COMPANIES INTHE",
+    "[09:10:40] COMPANIES IN THE S&P VERSUS THEMOST ASSET LIKE COMPANIES INTHE S&P.",
+    "[09:10:40] MOST ASSET LIKE COMPANIES INTHE S&P.",
+    "[09:10:40] MOST ASSET LIKE COMPANIES INTHE S&P. A",
+    "[09:10:40] MOST ASSET LIKE COMPANIES INTHE S&P. AND",
+    "[09:10:41] MOST ASSET LIKE COMPANIES INTHE S&P. AND T",
+    "[09:10:41] MOST ASSET LIKE COMPANIES INTHE S&P. AND THE A",
+    "[09:10:41] MOST ASSET LIKE COMPANIES INTHE S&P. AND THE ASS",
+    "[09:10:41] MOST ASSET LIKE COMPANIES INTHE S&P. AND THE ASSET",
+    "[09:10:41] MOST ASSET LIKE COMPANIES INTHE S&P. AND THE ASSET LIG",
+    "[09:10:41] MOST ASSET LIKE COMPANIES INTHE S&P. AND THE ASSET LIGHT",
+    "[09:10:42] MOST ASSET LIKE COMPANIES INTHE S&P. AND THE ASSET LIGHTCO",
+    "[09:10:42] MOST ASSET LIKE COMPANIES INTHE S&P. AND THE ASSET LIGHTCOMPAN",
+    "[09:10:42] MOST ASSET LIKE COMPANIES INTHE S&P. AND THE ASSET LIGHTCOMPANIE",
+    "[09:10:42] MOST ASSET LIKE COMPANIES INTHE S&P. AND THE ASSET LIGHTCOMPANIES",
+    "[09:10:42] THE S&P. AND THE ASSET LIGHTCOMPANIES O",
+    "[09:10:42] THE S&P. AND THE ASSET LIGHTCOMPANIES OBV",
+    "[09:10:42] THE S&P. AND THE ASSET LIGHTCOMPANIES OBVIOUS",
+    "[09:10:42] THE S&P. AND THE ASSET LIGHTCOMPANIES OBVIOUSLY",
+    "[09:10:42] THE S&P. AND THE ASSET LIGHTCOMPANIES OBVIOUSLY H",
+    "[09:10:42] THE S&P. AND THE ASSET LIGHTCOMPANIES OBVIOUSLY HAVE",
+    "[09:10:42] THE S&P. AND THE ASSET LIGHTCOMPANIES OBVIOUSLY HAVE DO",
+    "[09:10:42] THE S&P. AND THE ASSET LIGHTCOMPANIES OBVIOUSLY HAVE DONE",
+    "[09:10:43] THE S&P. AND THE ASSET LIGHTCOMPANIES OBVIOUSLY HAVE DONERE",
+    "[09:10:43] THE S&P. AND THE ASSET LIGHTCOMPANIES OBVIOUSLY HAVE DONEREAL",
+    "[09:10:43] THE S&P. AND THE ASSET LIGHTCOMPANIES OBVIOUSLY HAVE DONEREALLY",
+    "[09:10:43] COMPANIES OBVIOUSLY HAVE DONEREALLY",
+    "[09:10:43] COMPANIES OBVIOUSLY HAVE DONEREALLY WEL",
+    "[09:10:43] COMPANIES OBVIOUSLY HAVE DONEREALLY WELL",
+    "[09:10:43] COMPANIES OBVIOUSLY HAVE DONEREALLY WELL O",
+    "[09:10:43] COMPANIES OBVIOUSLY HAVE DONEREALLY WELL OVER",
+    "[09:10:44] COMPANIES OBVIOUSLY HAVE DONEREALLY WELL OVER THE",
+    "[09:10:44] COMPANIES OBVIOUSLY HAVE DONEREALLY WELL OVER THE P",
+    "[09:10:44] COMPANIES OBVIOUSLY HAVE DONEREALLY WELL OVER THE PAST",
+    "[09:10:44] COMPANIES OBVIOUSLY HAVE DONEREALLY WELL OVER THE PASTDE",
+    "[09:10:44] COMPANIES OBVIOUSLY HAVE DONEREALLY WELL OVER THE PASTDECA",
+    "[09:10:44] COMPANIES OBVIOUSLY HAVE DONEREALLY WELL OVER THE PASTDECADE.",
+    "[09:10:44] COMPANIES OBVIOUSLY HAVE DONEREALLY WELL OVER THE PASTDECADE. YOU",
+    "[09:10:45] REALLY WELL OVER THE PASTDECADE. YOU",
+    "[09:10:45] REALLY WELL OVER THE PASTDECADE. YOU K",
+    "[09:10:45] REALLY WELL OVER THE PASTDECADE. YOU KNOW,",
+    "[09:10:45] REALLY WELL OVER THE PASTDECADE. YOU KNOW, G",
+    "[09:10:45] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIV",
+    "[09:10:45] >>> MUTED | reason=CONFIDENCE_HIGH | match=\"ratio=0.13\" | noCcMs=0 | cc=\"REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIV\" | url=https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D | programVotes=0 | programQuorum=0",
+    "[09:10:45] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN",
+    "[09:10:45] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN T",
+    "[09:10:45] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE",
+    "[09:10:46] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE T",
+    "[09:10:46] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE THE",
+    "[09:10:46] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE THEMO",
+    "[09:10:46] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE THEMOVE",
+    "[09:10:46] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE THEMOVE T",
+    "[09:10:46] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE THEMOVE TO",
+    "[09:10:46] REALLY WELL OVER THE PASTDECADE. YOU KNOW, GIVEN THE THEMOVE TO AND",
+    "[09:10:46] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND",
+    "[09:10:47] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND T",
+    "[09:10:47] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE",
+    "[09:10:47] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE RIS",
+    "[09:10:47] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE RISE",
+    "[09:10:47] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE RISE TO",
+    "[09:10:48] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE RISE TO THE",
+    "[09:10:48] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE RISE TO THEDI",
+    "[09:10:48] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE RISE TO THEDIGI",
+    "[09:10:48] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE RISE TO THEDIGITAL",
+    "[09:10:48] DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE RISE TO THEDIGITAL E",
+    "[09:10:48] >>> UNMUTED | reason=LOW_CONFIDENCE | noCcMs=0 | cc=\"DECADE. YOU KNOW, GIVEN THE THEMOVE TO AND THE RISE TO THEDIGITAL E\" | url=https://tv.youtube.com/watch/JkSz8BQMld8?utm_servlet=prod&rd_rsn=lo&zipcode=84111&onboard=1&vp=0gEEEgIwAQ%3D%3D | programVotes=0 | programQuorum=0",
+    "[09:10:48] MOVE TO AND THE RISE TO THEDIGITAL E",
+    "[09:10:48] MOVE TO AND THE RISE TO THEDIGITAL ECO",
+    "[09:10:48] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY",
+    "[09:10:49] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY G",
+    "[09:10:49] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING",
+    "[09:10:50] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING F",
+    "[09:10:50] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING FOR",
+    "[09:10:50] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING FORWA",
+    "[09:10:50] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING FORWARD.",
+    "[09:10:50] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING FORWARD.I",
+    "[09:10:50] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING FORWARD.I M",
+    "[09:10:50] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING FORWARD.I MEA",
+    "[09:10:50] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING FORWARD.I MEAN,",
+    "[09:10:50] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING FORWARD.I MEAN, I",
+    "[09:10:50] MOVE TO AND THE RISE TO THEDIGITAL ECONOMY GOING FORWARD.I MEAN, IF",
+    "[09:10:51] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF",
+    "[09:10:51] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF A",
+    "[09:10:51] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF AI IS",
+    "[09:10:51] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF AI IS R",
+    "[09:10:51] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF AI IS REA",
+    "[09:10:51] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF AI IS REALL",
+    "[09:10:51] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF AI IS REALLY",
+    "[09:10:51] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF AI IS REALLY THA",
+    "[09:10:52] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF AI IS REALLY THAT",
+    "[09:10:52] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF AI IS REALLY THATGOOD",
+    "[09:10:52] DIGITAL ECONOMY GOING FORWARD.I MEAN, IF AI IS REALLY THATGOOD,",
+    "[09:10:52] I MEAN, IF AI IS REALLY THATGOOD,",
+    "[09:10:52] I MEAN, IF AI IS REALLY THATGOOD, W",
+    "[09:10:52] I MEAN, IF AI IS REALLY THATGOOD, WE",
+    "[09:10:53] I MEAN, IF AI IS REALLY THATGOOD, WE NEE",
+    "[09:10:53] I MEAN, IF AI IS REALLY THATGOOD, WE NEED",
+    "[09:10:53] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE",
+    "[09:10:53] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE N",
+    "[09:10:53] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEE",
+    "[09:10:53] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEED",
+    "[09:10:54] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEED M",
+    "[09:10:54] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEED MOR",
+    "[09:10:54] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEED MORE",
+    "[09:10:54] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEED MORE DATA",
+    "[09:10:54] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEED MORE DATACE",
+    "[09:10:54] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEED MORE DATACENTER",
+    "[09:10:54] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEED MORE DATACENTERS.",
+    "[09:10:54] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEED MORE DATACENTERS. W",
+    "[09:10:54] I MEAN, IF AI IS REALLY THATGOOD, WE NEED WE NEED MORE DATACENTERS. WE",
+    "[09:10:55] GOOD, WE NEED WE NEED MORE DATACENTERS. WE",
+    "[09:10:55] GOOD, WE NEED WE NEED MORE DATACENTERS. WE N",
+    "[09:10:55] GOOD, WE NEED WE NEED MORE DATACENTERS. WE NEED",
+    "[09:10:55] GOOD, WE NEED WE NEED MORE DATACENTERS. WE NEED MO",
+    "[09:10:55] GOOD, WE NEED WE NEED MORE DATACENTERS. WE NEED MORE C",
+    "[09:10:55] GOOD, WE NEED WE NEED MORE DATACENTERS. WE NEED MORE COM",
+    "[09:10:55] GOOD, WE NEED WE NEED MORE DATACENTERS. WE NEED MORE COMPU",
+    "[09:10:55] GOOD, WE NEED WE NEED MORE DATACENTERS. WE NEED MORE COMPUTE",
+    "[09:10:55] GOOD, WE NEED WE NEED MORE DATACENTERS. WE NEED MORE COMPUTEPO",
+    "[09:10:55] GOOD, WE NEED WE NEED MORE DATACENTERS. WE NEED MORE COMPUTEPOWER.",
+    "[09:10:55] CENTERS. WE NEED MORE COMPUTEPOWER.",
+    "[09:10:56] CENTERS. WE NEED MORE COMPUTEPOWER. A",
+    "[09:10:56] CENTERS. WE NEED MORE COMPUTEPOWER. AND",
+    "[09:10:56] CENTERS. WE NEED MORE COMPUTEPOWER. AND I T",
+    "[09:10:56] CENTERS. WE NEED MORE COMPUTEPOWER. AND I THI",
+    "[09:10:56] CENTERS. WE NEED MORE COMPUTEPOWER. AND I THINK",
+    "[09:10:56] CENTERS. WE NEED MORE COMPUTEPOWER. AND I THINK IT'",
+    "[09:10:56] CENTERS. WE NEED MORE COMPUTEPOWER. AND I THINK IT'S",
+    "[09:10:57] CENTERS. WE NEED MORE COMPUTEPOWER. AND I THINK IT'S GOI",
+    "[09:10:57] CENTERS. WE NEED MORE COMPUTEPOWER. AND I THINK IT'S GOING",
+    "[09:10:57] CENTERS. WE NEED MORE COMPUTEPOWER. AND I THINK IT'S GOINGTO",
+    "[09:10:57] CENTERS. WE NEED MORE COMPUTEPOWER. AND I THINK IT'S GOINGTO BE",
+    "[09:10:57] CENTERS. WE NEED MORE COMPUTEPOWER. AND I THINK IT'S GOINGTO BE MO",
+    "[09:10:57] CENTERS. WE NEED MORE COMPUTEPOWER. AND I THINK IT'S GOINGTO BE MORE",
+    "[09:10:57] POWER. AND I THINK IT'S GOINGTO BE MORE",
+    "[09:10:58] POWER. AND I THINK IT'S GOINGTO BE MORE C",
+    "[09:10:58] POWER. AND I THINK IT'S GOINGTO BE MORE CON",
+    "[09:10:58] POWER. AND I THINK IT'S GOINGTO BE MORE CONSTRA",
+    "[09:10:58] POWER. AND I THINK IT'S GOINGTO BE MORE CONSTRAIN",
+    "[09:10:58] POWER. AND I THINK IT'S GOINGTO BE MORE CONSTRAINED",
+    "[09:10:58] POWER. AND I THINK IT'S GOINGTO BE MORE CONSTRAINED BY",
+    "[09:10:58] POWER. AND I THINK IT'S GOINGTO BE MORE CONSTRAINED BYFI",
+    "[09:10:58] POWER. AND I THINK IT'S GOINGTO BE MORE CONSTRAINED BYFISCAL",
+    "[09:10:59] TO BE MORE CONSTRAINED BYFISCAL",
+    "[09:10:59] TO BE MORE CONSTRAINED BYFISCAL C",
+    "[09:10:59] TO BE MORE CONSTRAINED BYFISCAL CONST",
+    "[09:10:59] TO BE MORE CONSTRAINED BYFISCAL CONSTRA",
+    "[09:10:59] TO BE MORE CONSTRAINED BYFISCAL CONSTRAIN",
+    "[09:10:59] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS",
+    "[09:10:59] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS R",
+    "[09:11:00] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS RAT",
+    "[09:11:00] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS RATHER",
+    "[09:11:00] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS RATHER T",
+    "[09:11:00] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS RATHER THA",
+    "[09:11:00] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS RATHER THAN",
+    "[09:11:01] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS RATHER THANTHE",
+    "[09:11:01] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS RATHER THANTHE DI",
+    "[09:11:01] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS RATHER THANTHE DIGITA",
+    "[09:11:01] TO BE MORE CONSTRAINED BYFISCAL CONSTRAINTS RATHER THANTHE DIGITAL",
+    "[09:11:02] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL",
+    "[09:11:02] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL C",
+    "[09:11:02] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONST",
+    "[09:11:02] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRA",
+    "[09:11:02] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS",
+    "[09:11:02] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS.",
+    "[09:11:02] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. A",
+    "[09:11:02] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND I",
+    "[09:11:02] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IF",
+    "[09:11:02] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IFTHAT",
+    "[09:11:03] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IFTHAT'S",
+    "[09:11:03] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IFTHAT'S T",
+    "[09:11:03] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IFTHAT'S THE",
+    "[09:11:03] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CAS",
+    "[09:11:03] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE,",
+    "[09:11:03] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, W",
+    "[09:11:03] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, WE JU",
+    "[09:11:03] FISCAL CONSTRAINTS RATHER THANTHE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, WE JUST",
+    "[09:11:03] THE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, WE JUST",
+    "[09:11:04] THE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, WE JUST G",
+    "[09:11:04] THE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, WE JUST GOT T",
+    "[09:11:04] THE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, WE JUST GOT TO",
+    "[09:11:04] THE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, WE JUST GOT TOBU",
+    "[09:11:04] THE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, WE JUST GOT TOBUILD",
+    "[09:11:04] THE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, WE JUST GOT TOBUILD MO",
+    "[09:11:04] THE DIGITAL CONSTRAINTS. AND IFTHAT'S THE CASE, WE JUST GOT TOBUILD MORE",
+    "[09:11:04] THAT'S THE CASE, WE JUST GOT TOBUILD MORE",
+    "[09:11:05] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STU",
+    "[09:11:05] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF",
+    "[09:11:05] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND",
+    "[09:11:05] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND W",
+    "[09:11:05] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHI",
+    "[09:11:05] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHICH I",
+    "[09:11:05] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHICH IS",
+    "[09:11:06] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHICH ISBU",
+    "[09:11:06] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHICH ISBULLIS",
+    "[09:11:06] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHICH ISBULLISH",
+    "[09:11:06] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHICH ISBULLISH FOR,",
+    "[09:11:06] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHICH ISBULLISH FOR, Y",
+    "[09:11:06] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU",
+    "[09:11:06] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNO",
+    "[09:11:06] THAT'S THE CASE, WE JUST GOT TOBUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNOW,",
+    "[09:11:06] BUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNOW,",
+    "[09:11:07] BUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNOW, T",
+    "[09:11:07] BUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNOW, THE",
+    "[09:11:07] BUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNOW, THE OLD",
+    "[09:11:07] BUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNOW, THE OLDEC",
+    "[09:11:07] BUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNOW, THE OLDECON",
+    "[09:11:07] BUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNOW, THE OLDECONOMY.",
+    "[09:11:07] BUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNOW, THE OLDECONOMY.>>",
+    "[09:11:08] BUILD MORE STUFF AND WHICH ISBULLISH FOR, YOU KNOW, THE OLDECONOMY.>> A",
+    "[09:11:08] ECONOMY.>> A",
+    "[09:11:08] ECONOMY.>> AND T",
+    "[09:11:08] ECONOMY.>> AND THE",
+    "[09:11:08] ECONOMY.>> AND THEN Y",
+    "[09:11:08] ECONOMY.>> AND THEN YOU",
+    "[09:11:08] ECONOMY.>> AND THEN YOU S",
+    "[09:11:08] ECONOMY.>> AND THEN YOU START",
+    "[09:11:09] ECONOMY.>> AND THEN YOU START G",
+    "[09:11:09] ECONOMY.>> AND THEN YOU START GET",
+    "[09:11:09] ECONOMY.>> AND THEN YOU START GETTING",
+    "[09:11:09] ECONOMY.>> AND THEN YOU START GETTINGIN",
+    "[09:11:09] ECONOMY.>> AND THEN YOU START GETTINGINTO",
+    "[09:11:09] ECONOMY.>> AND THEN YOU START GETTINGINTO MUN",
+    "[09:11:09] ECONOMY.>> AND THEN YOU START GETTINGINTO MUNIC",
+    "[09:11:09] ECONOMY.>> AND THEN YOU START GETTINGINTO MUNICIP",
+    "[09:11:09] ECONOMY.>> AND THEN YOU START GETTINGINTO MUNICIPAL",
+    "[09:11:09] >> AND THEN YOU START GETTINGINTO MUNICIPAL",
+    "[09:11:09] >> AND THEN YOU START GETTINGINTO MUNICIPAL PUS",
+    "[09:11:09] >> AND THEN YOU START GETTINGINTO MUNICIPAL PUSHB",
+    "[09:11:09] >> AND THEN YOU START GETTINGINTO MUNICIPAL PUSHBACK",
+    "[09:11:10] >> AND THEN YOU START GETTINGINTO MUNICIPAL PUSHBACK A",
+    "[09:11:10] >> AND THEN YOU START GETTINGINTO MUNICIPAL PUSHBACK AND",
+    "[09:11:10] >> AND THEN YOU START GETTINGINTO MUNICIPAL PUSHBACK ANDMORE",
+    "[09:11:10] INTO MUNICIPAL PUSHBACK ANDMORE",
+    "[09:11:11] INTO MUNICIPAL PUSHBACK ANDMORE SOC",
+    "[09:11:11] INTO MUNICIPAL PUSHBACK ANDMORE SOCIA",
+    "[09:11:11] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL",
+    "[09:11:11] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL A",
+    "[09:11:11] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL ARE",
+    "[09:11:11] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS",
+    "[09:11:11] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS OF",
+    "[09:11:12] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS OF F",
+    "[09:11:12] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS OF FRI",
+    "[09:11:12] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS OF FRICT",
+    "[09:11:12] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS OF FRICTION.",
+    "[09:11:13] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS OF FRICTION.SO",
+    "[09:11:13] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS OF FRICTION.SO G",
+    "[09:11:13] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS OF FRICTION.SO GRE",
+    "[09:11:13] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS OF FRICTION.SO GREAT T",
+    "[09:11:13] INTO MUNICIPAL PUSHBACK ANDMORE SOCIAL AREAS OF FRICTION.SO GREAT TO",
+    "[09:11:13] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO",
+    "[09:11:13] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAV",
+    "[09:11:13] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE",
+    "[09:11:13] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YO",
+    "[09:11:13] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. T",
+    "[09:11:13] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. THA",
+    "[09:11:13] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. THANK",
+    "[09:11:13] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. THANKS SO",
+    "[09:11:14] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. THANKS SOMU",
+    "[09:11:14] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. THANKS SOMUCH",
+    "[09:11:14] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. THANKS SOMUCH.",
+    "[09:11:14] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD",
+    "[09:11:14] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD T",
+    "[09:11:14] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD TO SE",
+    "[09:11:14] MORE SOCIAL AREAS OF FRICTION.SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD TO SEE",
+    "[09:11:15] SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD TO SEE",
+    "[09:11:15] SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD TO SEE YOU",
+    "[09:11:15] SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD TO SEE YOU.",
+    "[09:11:15] SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD TO SEE YOU.>>",
+    "[09:11:15] SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD TO SEE YOU.>> OPT",
+    "[09:11:15] SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD TO SEE YOU.>> OPTIM",
+    "[09:11:15] SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD TO SEE YOU.>> OPTIMISTI",
+    "[09:11:15] SO GREAT TO HAVE YOU. THANKS SOMUCH. GOOD TO SEE YOU.>> OPTIMISTIC",
+    "[09:11:16] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC G",
+    "[09:11:16] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY.",
+    "[09:11:16] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. Y",
+    "[09:11:16] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH",
+    "[09:11:16] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH 7",
+    "[09:11:17] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH 7800",
+    "[09:11:17] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH 7800TA",
+    "[09:11:17] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH 7800TARG",
+    "[09:11:17] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH 7800TARGET",
+    "[09:11:17] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH 7800TARGET.",
+    "[09:11:17] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH 7800TARGET. U",
+    "[09:11:17] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH 7800TARGET. UP",
+    "[09:11:17] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH 7800TARGET. UP NE",
+    "[09:11:18] MUCH. GOOD TO SEE YOU.>> OPTIMISTIC GUY. YEAH 7800TARGET. UP NEXT",
+    "[09:11:18] >> OPTIMISTIC GUY. YEAH 7800TARGET. UP NEXT",
+    "[09:11:18] >> OPTIMISTIC GUY. YEAH 7800TARGET. UP NEXT CEO",
+    "[09:11:18] >> OPTIMISTIC GUY. YEAH 7800TARGET. UP NEXT CEO OF",
+    "[09:11:19] >> OPTIMISTIC GUY. YEAH 7800TARGET. UP NEXT CEO OF CAV",
+    "[09:11:19] >> OPTIMISTIC GUY. YEAH 7800TARGET. UP NEXT CEO OF CAVA.",
+    "[09:11:19] >> OPTIMISTIC GUY. YEAH 7800TARGET. UP NEXT CEO OF CAVA.FI",
+    "[09:11:19] TARGET. UP NEXT CEO OF CAVA.FIRST"
+  ]
+}

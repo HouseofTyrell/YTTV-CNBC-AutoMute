@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.3.5: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.3.6: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.3.5
+// @version      4.3.6
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -419,7 +419,8 @@
   const _PRONOUNS = new Set(['you', 'your', "you're", 'yourself']);
   const _IMPERATIVES = new Set(['get', 'call', 'visit', 'try', 'ask', 'switch', 'start', 'save', 'protect', 'discover', 'order', 'apply', 'enroll', 'join', 'claim']);
   const _THIRD_PERSON = new Set(['they', 'their', 'them', 'analysts', 'investors']);
-  const _ANALYTICAL = new Set(['reported', 'expects', 'estimates', 'revenue', 'growth', 'decline', 'forecast', 'quarter', 'consensus', 'guidance']);
+  const _ANALYTICAL = new Set(['reported', 'expects', 'estimates', 'revenue', 'growth', 'decline', 'forecast', 'quarter', 'consensus', 'guidance',
+    'earnings', 'economy', 'inflation', 'equities', 'market', 'stocks', 'rates', 'yields', 'fiscal', 'tariffs', 'monetary', 'cyclical', 'sector']);
 
   /* ---------- TEXT ANALYZER ---------- */
   const TextAnalyzer = {
@@ -448,11 +449,15 @@
     imperativeScore(text) {
       const words = text.toLowerCase().split(/\s+/);
       if (words.length < 3) return 0;
-      let count = 0;
+      let pronouns = 0, verbs = 0;
       for (const w of words) {
-        if (_PRONOUNS.has(w) || _IMPERATIVES.has(w)) count++;
+        if (_IMPERATIVES.has(w)) verbs++;
+        else if (_PRONOUNS.has(w)) pronouns++;
       }
-      return count / words.length;
+      // Require at least one imperative verb — pronouns alone
+      // ("you know", "what do you mean") are normal in interviews
+      if (verbs === 0) return 0;
+      return (pronouns + verbs) / words.length;
     },
 
     conversationalScore(text) {
@@ -695,8 +700,9 @@
 
     // Quorum decay on ad-like signals — erode quorum when ad signals appear
     // (catches back-to-back ad breaks where quorum carries over from prior program)
+    // Threshold 15 so mild signals (imperativeVoice+shortPunchy=14) don't erode quorum
     const adSignalWeight = signalResults.filter(s => s.weight > 0).reduce((sum, s) => sum + s.weight, 0);
-    if (adSignalWeight >= 10) {
+    if (adSignalWeight >= 15) {
       State.programQuorumCount = Math.max(0, State.programQuorumCount - 1);
       State.programVotes = Math.max(0, State.programVotes - 1);
     }
@@ -1499,7 +1505,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.3.5',
+      version: '4.3.6',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1686,7 +1692,7 @@
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.5 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.6 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -1782,5 +1788,5 @@
   window.addEventListener('beforeunload', () => {
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
   });
-  log('Booted v4.3.5',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.3.6',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
