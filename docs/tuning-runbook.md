@@ -155,6 +155,7 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 | captionBottomed | +10 | ad | Captions positioned at bottom | Mild signal — gated by mildGate in v4.4.0 |
 | testimonialAd | +12 | ad | Composite: bottomed + mixed case + no CNBC markers + post-captionLoss | **v4.4.0**: Detects testimonial/conversational ads (Coventry Direct, Blackstone, etc.) |
 | mildGate | 0 | synthetic | Prevents mild-only signals from crossing threshold | **v4.4.0**: Fires when only captionBottomed/shortPunchyLines (+ textFeatures ≤10) are positive. Caps conf to threshold-1. |
+| programAllowSuppressed | 0 | synthetic | Observability: programAllow's PROGRAM_CONFIRMED exit was blocked | **v4.4.1**: Fires when programAllow suppressed by brand/bottom/testimonial/captionLoss. |
 | caseShift (ad) | +28 | ad | ALL CAPS → mixed case transition | Reliable |
 | domAdShowing | +45 | ad | `.ad-showing` class on player | May not work on tv.youtube.com |
 | programAllow | -45 | prog | CNBC show titles, tickers, financial terms | Very strong, overrides most ad signals |
@@ -164,7 +165,7 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 | segmentName | -18 | prog | "Squawk Box", "Power Lunch" etc | |
 | speakerMarker | -15 | prog | `>>` in captions (CNBC speaker change) | Never appears in ads |
 | conversational | -12 | prog | Third-person pronouns + analytical words | **v4.3.6**: Added financial terms (earnings, economy, inflation, equities, market, stocks, rates, yields, fiscal, tariffs, monetary, cyclical, sector) |
-| caseShift (prog) | -28 | prog | Mixed case → ALL CAPS transition | **v4.3.8**: Halved when adContext/ctaDetected also present (ALL CAPS ads) |
+| caseShift (prog) | -28 | prog | Mixed case → ALL CAPS transition | **v4.4.1**: Unified dampening: 0 within 15s of captionLoss (no corroboration), -14 no corroboration, -7 no corroboration + ad signal |
 
 ## Known Failure Patterns
 
@@ -190,16 +191,16 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 **Fix (v4.3.8)**: `priceMention` suppressed when `recentProgram` is set. `textFeatures` capped at +12 when `recentProgram` is set (45s window).
 **Fix (v4.4.0)**: Extended `recentProgram` window from 45s to 90s. Added `programQuorumCount > 0` as alternative dampening trigger. 9 instances resolved in 17h passive log analysis.
 
-### 6. ALL CAPS Ads Triggering caseShift→program (Open — 3 sightings)
+### 6. ALL CAPS Ads Triggering caseShift→program (Fixed v4.4.1 — 4 sightings)
 **Pattern**: Some ads (Coventry Direct, Shopify-style) use ALL CAPS text identical to CNBC live captions. After captionLoss, caseShift detects ALL CAPS continuity and awards -28 (program signal). Causes 8-11s false negatives.
-**Mitigation (v4.3.8)**: caseShift(program) weight halved when `adContext` or `ctaDetected` are also present. Known limitation: if no ad signals fire alongside caseShift, the false program signal persists.
-**Sightings**: Coventry Direct (v4.3.7 12:28:50, 8s FN), ALL CAPS ad (v4.3.9 15:44:14, 11s FN on "LAUNCH TO LE...SWITCH TO"), Coventry Direct again in labeled session.
-**Suggested fix**: After captionLoss→new captions, suppress caseShift(program) for ~10s unless speakerMarker or anchorName also present. CaptionLoss almost always precedes ad breaks.
+**Fix (v4.4.1)**: Unified caseShift(program) dampening with 6 outcome tiers: suppressed to 0 within 15s of captionLoss (unless speakerMarker/anchorName corroboration), halved to -14 when no corroboration, quartered to -7 when ad signals present without corroboration. Simulation: 12 entries affected on labeled data (zero regressions), 21 entries on v4.4.0 data.
+**Sightings**: Coventry Direct (v4.3.7 12:28:50, 8s FN), ALL CAPS ad (v4.3.9 15:44:14, 11s FN), Coventry Direct again in labeled session, Coventry Direct (v4.4.0 12:15 during manual mute).
 
-### 7. Parent Company Ads Triggering programAllow (Fixed v4.3.8)
-**Pattern**: "Comcast Business" ads trigger `programAllow(-45)` because "Comcast" (CNBC parent) is in the allow phrase list via caption window residual.
-**Fix**: `programAllow` override suppressed in decision engine when `brandDetected` also fires on the same evaluation. "Comcast Business" added to brand terms.
-**Verified**: v4.3.9 15:28:07 — Comcast Business bumper had `brandDetected(4) + programAllow(-45)`, reason was PROGRAM_QUORUM_MET (not PROGRAM_CONFIRMED). Fix worked; system muted 11s later on captionBottomed.
+### 7. Parent Company Ads Triggering programAllow (Fixed v4.3.8, expanded v4.4.1)
+**Pattern**: Ads trigger `programAllow(-45)` by mentioning market terms (e.g., "Comcast", "Nasdaq-100 innovators"). The PROGRAM_CONFIRMED early exit clears adLock and sets quorum.
+**Fix (v4.3.8)**: `programAllow` suppressed when `brandDetected` fires.
+**Fix (v4.4.1)**: Expanded suppression to also check `captionBottomed`, `testimonialAd`, and 30s post-captionLoss window (without speakerMarker/anchorName corroboration). Suppressed programAllow excluded from `strongProgramSignal` check. Synthetic `programAllowSuppressed` signal emitted for observability.
+**Sightings**: Comcast Business (v4.3.9 15:28:07), Invesco "Nasdaq-100 innovators" (v4.4.0 11:25:17, 13s false unmute, self-corrected).
 
 ### 8. Testimonial-Style Ads Score Low (Fixed v4.4.0 — 9 sightings)
 **Pattern**: First/second-person ad copy triggers `conversational(-12)` because it uses pronouns and analytical-adjacent language. No strong ad signals counteract. Net score stays 36-44, well below threshold. Causes 5-18s false negatives.

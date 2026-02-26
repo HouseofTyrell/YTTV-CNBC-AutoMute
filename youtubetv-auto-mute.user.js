@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.4.0: Mild Gate + Testimonial Signal)
+// @name         YTTV Auto-Mute (v4.4.1: caseShift Guard + programAllow Guard)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.4.0
+// @version      4.4.1
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -568,7 +568,7 @@
     }
     // Cap total textFeatures weight during confirmed program content
     if ((recentProgram || State.programQuorumCount > 0) && w > 12) { w = 12; parts.push('dampened'); }
-    return w > 0 ? { weight: w, label: 'Text features: ' + parts.join('+'), match: null } : null;
+    return w > 0 ? { weight: w, label: 'Text features: ' + parts.join('+'), match: parts.join('+') } : null;
   });
 
   SignalCollector.register('caseShift', (text, env) => {
@@ -706,17 +706,25 @@
       if (State.manualMuteActive) return { shouldMute: true, reason: 'MANUAL_MUTE', virtualReason: 'PROGRAM_CONFIRMED' };
       return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
     }
+    // Expanded programAllow suppression — prevents false unmute on ads with market terms
+    let programAllowSuppressed = false;
     if (hasProgramAllow) {
-      // Suppress programAllow when brandDetected also fires — avoids false unmute
-      // on ads from parent companies (e.g., "Comcast Business" matching "comcast" brand)
       const hasBrand = signalResults.some(s => s.source === 'brandDetected');
-      if (!hasBrand) {
+      const hasBottomOrTestimonial = signalResults.some(s => s.source === 'captionBottomed' || s.source === 'testimonialAd');
+      const hasCorroboration = signalResults.some(s => s.source === 'speakerMarker' || s.source === 'anchorName');
+      const postCaptionLoss = State.lastCaptionLossEndMs > 0 && (t - State.lastCaptionLossEndMs < 30000);
+      const suppress = hasBrand || hasBottomOrTestimonial || (postCaptionLoss && !hasCorroboration);
+
+      if (!suppress) {
         State.adLockUntil = 0;
         State.programVotes = S.programVotesNeeded;
         State.programQuorumCount = S.programQuorumLines;
         if (State.manualMuteActive) return { shouldMute: true, reason: 'MANUAL_MUTE', virtualReason: 'PROGRAM_CONFIRMED' };
         return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
       }
+      programAllowSuppressed = true;
+      const reason = hasBrand ? 'brand' : hasBottomOrTestimonial ? 'bottom/testimonial' : 'post-captionLoss';
+      signalResults.push({ source: 'programAllowSuppressed', weight: 0, label: 'programAllow suppressed: ' + reason, match: null });
     }
 
     if (meetsThreshold && confidence >= 82) {
@@ -729,7 +737,8 @@
     const lockActive = t < State.adLockUntil;
 
     // Strong program signal: anchor, allow, segment, guest intro (not conversational at -8)
-    const strongProgramSignal = signalResults.some(s => s.weight <= -12);
+    // Exclude suppressed programAllow from counting as strong program signal
+    const strongProgramSignal = signalResults.some(s => s.weight <= -12 && !(programAllowSuppressed && s.source === 'programAllow'));
     if (strongProgramSignal) State.lastStrongProgramMs = t;
 
     // Quorum decay on staleness — if no strong program signal in 20s, erode quorum
@@ -1026,6 +1035,7 @@
       adLock: Date.now() < State.adLockUntil,
       quorum: State.programQuorumCount,
       pv: State.programVotes,
+      clEnd: State.lastCaptionLossEndMs || undefined,
     };
     if (decision.virtualReason) rec.vr = decision.virtualReason;
     passiveLogPush(rec);
@@ -1060,7 +1070,7 @@
       _passiveFlushTimer = null;
       if (_passiveDirty) {
         kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.0' });
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.1' });
         _passiveDirty = false;
       }
     }, 10000);
@@ -1112,7 +1122,7 @@
       .filter(r => r.event === 'boundary')
       .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
     const report = {
-      version: '4.4.0',
+      version: '4.4.1',
       format: 'passive_log',
       sessionStart: new Date(State.passiveSessionStart).toISOString(),
       savedAt: new Date().toISOString(),
@@ -1308,7 +1318,7 @@
 
     // Track when captions return after a captionLoss period (for testimonialAd signal)
     // Must happen BEFORE collectAll() because captionLoss handler resets noCcConsec
-    if (captionsExist && State.noCcConsec > 0) State.lastCaptionLossEndMs = Date.now();
+    if (captionsExist && State.noCcConsec >= S.noCcHitsToMute) State.lastCaptionLossEndMs = Date.now();
 
     const env = { captionsExist, captionsBottomed, noCcMs, textFeatures, imperativeScore, conversationalScore, guestIntroDetected, guestIntroMatch, domAdShowing };
 
@@ -1331,13 +1341,35 @@
       }
     }
 
-    // Dampen caseShift→program when ad signals (adContext/ctaDetected) are also present
-    // ALL CAPS ads (e.g., Coventry Direct) look like CNBC program to caseShift
+    // Unified caseShift(program) dampening — tiers based on captionLoss, corroboration, ad signals
     const csIdx = signals.findIndex(s => s.source === 'caseShift' && s.weight < 0);
-    if (csIdx !== -1 && signals.some(s => s.source === 'adContext' || s.source === 'ctaDetected')) {
-      const halved = Math.round(signals[csIdx].weight / 2);
-      signals[csIdx] = { ...signals[csIdx], weight: halved, label: signals[csIdx].label + ' (dampened)' };
-      confidence = calculateConfidence(signals);
+    if (csIdx !== -1) {
+      const hasAdSignal = signals.some(s => s.source === 'adContext' || s.source === 'ctaDetected');
+      const hasCorroboration = signals.some(s => s.source === 'speakerMarker' || s.source === 'anchorName');
+      const postCaptionLoss = State.lastCaptionLossEndMs > 0 && (t - State.lastCaptionLossEndMs < 15000);
+
+      let newWeight = signals[csIdx].weight; // starts at -28
+      let reason = '';
+
+      if (postCaptionLoss && !hasCorroboration) {
+        newWeight = 0;
+        reason = 'suppressed (post-captionLoss)';
+      } else if (!postCaptionLoss && !hasCorroboration && hasAdSignal) {
+        newWeight = Math.round(WEIGHT.CASE_SHIFT_PROGRAM / 4); // -7
+        reason = 'dampened (no corroboration + ad signal)';
+      } else if (!postCaptionLoss && hasAdSignal) {
+        newWeight = Math.round(WEIGHT.CASE_SHIFT_PROGRAM / 2); // -14
+        reason = 'dampened (ad signal)';
+      } else if (!postCaptionLoss && !hasCorroboration) {
+        newWeight = Math.round(WEIGHT.CASE_SHIFT_PROGRAM / 2); // -14
+        reason = 'dampened (no corroboration)';
+      }
+      // else: full weight (postCaptionLoss + corroboration, or !postCaptionLoss + corroboration + !adSignal)
+
+      if (newWeight !== signals[csIdx].weight) {
+        signals[csIdx] = { ...signals[csIdx], weight: newWeight, label: signals[csIdx].label + ' (' + reason + ')' };
+        confidence = calculateConfidence(signals);
+      }
     }
 
     // Mild signal gate: prevent mild-only signals from crossing threshold
@@ -1784,7 +1816,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.4.0',
+      version: '4.4.1',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1974,7 +2006,7 @@
 
     panel.innerHTML = _html(`
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.4.0 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.4.1 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -2079,7 +2111,7 @@
       State.passiveSessionStart = Date.now();
       State.passiveLog = [];
     }
-    passiveEvent('session_start', { version: '4.4.0', url: location.href });
+    passiveEvent('session_start', { version: '4.4.1', url: location.href });
     schedulePassiveFlush();
   }
   startPassiveSaveTimer();
@@ -2089,9 +2121,9 @@
     if (S.passiveLogging) {
       passiveEvent('session_end');
       kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.0' });
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.1' });
       passiveAutoSave();
     }
   });
-  log('Booted v4.4.0',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.4.1',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();

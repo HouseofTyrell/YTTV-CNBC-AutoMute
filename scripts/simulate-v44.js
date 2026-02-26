@@ -1,15 +1,19 @@
 #!/usr/bin/env node
 /**
- * simulate-v44.js — Regression simulation for v4.4.0 signal tuning changes
+ * simulate-v44.js — Regression simulation for v4.4.x signal tuning changes
  *
  * Replays passive log entries and labeled data, applying proposed changes:
- *   Fix A: Mild signal gate (captionBottomed + shortPunchyLines alone can't cross threshold)
- *   Fix B: Replace bare "quote" in adContext with specific ad phrases
- *   Fix C: New testimonialAd composite signal (+12)
- *   Fix D: Extended textFeatures dampening (90s window + quorum)
- *   Fix E: Narrow "stick around" in breakCue
+ *   v4.4.0 fixes:
+ *     Fix A: Mild signal gate (captionBottomed + shortPunchyLines alone can't cross threshold)
+ *     Fix B: Replace bare "quote" in adContext with specific ad phrases
+ *     Fix C: New testimonialAd composite signal (+12)
+ *     Fix D: Extended textFeatures dampening (90s window + quorum)
+ *     Fix E: Narrow "stick around" in breakCue
+ *   v4.4.1 fixes:
+ *     Fix F: Unified caseShift(program) dampening (captionLoss suppression + corroboration)
+ *     Fix G: Expanded programAllow suppression (flag-only, cannot fully simulate decision engine)
  *
- * Usage: node scripts/simulate-v44.js [--verbose] [--fix=A,B,C,D,E] [--file=path]
+ * Usage: node scripts/simulate-v44.js [--verbose] [--fix=A,B,C,D,E,F,G] [--file=path]
  */
 
 const fs = require('fs');
@@ -22,7 +26,7 @@ const fixArg = args.find(a => a.startsWith('--fix='));
 const fileArg = args.find(a => a.startsWith('--file='));
 const enabledFixes = fixArg
   ? new Set(fixArg.replace('--fix=', '').split(',').map(f => f.trim().toUpperCase()))
-  : new Set(['A', 'B', 'C', 'D', 'E']);
+  : new Set(['A', 'B', 'C', 'D', 'E', 'F', 'G']);
 
 // --- Constants ---
 const THRESHOLD = 65;  // S.confidenceThreshold (from v4.3.8+ defaults)
@@ -162,6 +166,64 @@ function simulateEntry(entry, prevEntries, allEntries, idx) {
     }
   }
 
+  // --- Fix F: Unified caseShift(program) dampening ---
+  if (enabledFixes.has('F')) {
+    const csIdx = signals.findIndex(s => s.source === 'caseShift' && s.weight < 0);
+    if (csIdx !== -1) {
+      // Reconstruct original weight: v4.4.0 halves when adContext/ctaDetected present
+      // If the signal was already dampened, its current weight = -14 and original was -28
+      const hasAdSignal = signals.some(s => s.source === 'adContext' || s.source === 'ctaDetected');
+      const hasCorroboration = signals.some(s => s.source === 'speakerMarker' || s.source === 'anchorName');
+      const postCaptionLoss = checkRecentCaptionLoss(allEntries, idx, 15000);
+      const CASE_SHIFT_PROGRAM = -28;
+
+      // Figure out original weight (before any v4.4.0 dampening)
+      const currentW = signals[csIdx].weight;
+      const originalW = (hasAdSignal && currentW === Math.round(CASE_SHIFT_PROGRAM / 2)) ? CASE_SHIFT_PROGRAM : currentW;
+
+      let newWeight = originalW;
+      let reason = '';
+
+      if (postCaptionLoss && !hasCorroboration) {
+        newWeight = 0;
+        reason = 'suppressed (post-captionLoss)';
+      } else if (!postCaptionLoss && !hasCorroboration && hasAdSignal) {
+        newWeight = Math.round(CASE_SHIFT_PROGRAM / 4); // -7
+        reason = 'dampened (no corroboration + ad signal)';
+      } else if (!postCaptionLoss && hasAdSignal) {
+        newWeight = Math.round(CASE_SHIFT_PROGRAM / 2); // -14
+        reason = 'dampened (ad signal)';
+      } else if (!postCaptionLoss && !hasCorroboration) {
+        newWeight = Math.round(CASE_SHIFT_PROGRAM / 2); // -14
+        reason = 'dampened (no corroboration)';
+      }
+      // else: full weight
+
+      if (newWeight !== currentW) {
+        confDelta -= (currentW - newWeight);  // positive delta means less negative = higher conf
+        signals[csIdx] = { ...signals[csIdx], weight: newWeight };
+        changes.push(`Fix F: caseShift(${currentW} → ${newWeight}) ${reason}`);
+      }
+    }
+  }
+
+  // --- Fix G: Expanded programAllow suppression (flag-only) ---
+  if (enabledFixes.has('G')) {
+    const paIdx = signals.findIndex(s => s.source === 'programAllow');
+    if (paIdx !== -1 && entry.reason === 'PROGRAM_CONFIRMED') {
+      const hasBottomOrTestimonial = signals.some(s => s.source === 'captionBottomed' || s.source === 'testimonialAd');
+      const hasCorroboration = signals.some(s => s.source === 'speakerMarker' || s.source === 'anchorName');
+      const postCaptionLoss30 = checkRecentCaptionLoss(allEntries, idx, 30000);
+      const hasBrand = signals.some(s => s.source === 'brandDetected');
+      const wouldSuppress = hasBrand || hasBottomOrTestimonial || (postCaptionLoss30 && !hasCorroboration);
+      if (wouldSuppress) {
+        const reason = hasBrand ? 'brand' : hasBottomOrTestimonial ? 'bottom/testimonial' : 'post-captionLoss';
+        changes.push(`Fix G: programAllow PROGRAM_CONFIRMED would be suppressed (${reason})`);
+        // Note: can't simulate decision engine change, just flagging
+      }
+    }
+  }
+
   // --- Fix A: Mild signal gate ---
   if (enabledFixes.has('A')) {
     const newConf = oldConf + confDelta;
@@ -269,7 +331,7 @@ function runSimulation(filePath, label) {
 
   const results = [];
   let changedDecisions = 0;
-  const fixCounts = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+  const fixCounts = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0 };
 
   // For labeled data, track FP/FN changes
   let fpRemoved = 0, fpAdded = 0, fnRemoved = 0, fnAdded = 0;
@@ -286,6 +348,8 @@ function runSimulation(filePath, label) {
         if (c.startsWith('Fix C')) fixCounts.C++;
         if (c.startsWith('Fix D')) fixCounts.D++;
         if (c.startsWith('Fix E')) fixCounts.E++;
+        if (c.startsWith('Fix F')) fixCounts.F++;
+        if (c.startsWith('Fix G')) fixCounts.G++;
       }
     }
 
@@ -373,9 +437,10 @@ function runSimulation(filePath, label) {
 // --- Main ---
 const projectRoot = path.resolve(__dirname, '..');
 const mergedLog = fileArg ? fileArg.replace('--file=', '') : '/tmp/yttp_merged_new.json';
+const mergedV44 = '/tmp/yttp_merged_v44.json';
 const labeledData = path.join(projectRoot, 'docs/labeled/2026-02-25_1051_labeled.json');
 
-console.log('v4.4.0 Regression Simulation');
+console.log('v4.4.x Regression Simulation');
 console.log(`Fixes enabled: ${[...enabledFixes].join(', ')}`);
 
 // Run on labeled data first (most critical)
@@ -386,9 +451,14 @@ if (fs.existsSync(labeledData)) {
   }
 }
 
-// Run on merged passive log
+// Run on merged passive log (v4.3.9)
 if (fs.existsSync(mergedLog)) {
   runSimulation(mergedLog, 'Merged passive log (17h, v4.3.9)');
+}
+
+// Run on v4.4.0 log (only new fixes F,G matter here — A-E already baked in)
+if (fs.existsSync(mergedV44)) {
+  runSimulation(mergedV44, 'Merged v4.4.0 log (1.5h)');
 }
 
 console.log('\n' + '='.repeat(70));
