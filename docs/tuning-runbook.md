@@ -140,9 +140,9 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 | Signal | Weight | Type | What It Detects | Known Failure Modes |
 |--------|--------|------|-----------------|---------------------|
 | hardPhrase | +40 | ad | Medicare/Rx disclaimers, direct ad language | Very reliable, few false positives |
-| breakCue | +38 | ad | "We'll be right back" type phrases | Reliable |
+| breakCue | +38 | ad | "We'll be right back" type phrases | Reliable. **v4.4.0**: Bare "stick around" replaced with "stick around for"/"we'll stick around". |
 | brandDetected | +12 | ad | Company/product names in ad context | Can fire on guest intros (suppressed by guestIntro) |
-| adContext | +10 | ad | Insurance, financial product terms | Can fire on CNBC financial discussion (dampened by `recentProgram`) |
+| adContext | +10 | ad | Insurance, financial product terms | Can fire on CNBC financial discussion (dampened by `recentProgram`). **v4.4.0**: Bare "quote" replaced with "get a quote"/"free quote"/"quote today"/"quote now". |
 | ctaDetected | +8 | ad | "Call now", "visit" type phrases | Rare false positives |
 | offerDetected | +8 | ad | "Free trial", "limited time" etc | Reliable |
 | urlOrPhone | +10 | ad | URLs or phone numbers in captions | Reliable |
@@ -150,9 +150,11 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 | shortPunchyLines | +6 | ad | Avg caption line length < 50 chars | Fires on short CNBC live caption segments. Mild signal, not problematic alone. |
 | capsHeavy | +6 | ad | High caps ratio in mixed-case context | Suppressed when avg recent caps is high (CNBC live is ALL CAPS) |
 | punctHeavy | +4 | ad | Exclamation marks, ellipses | Mild signal |
-| priceMention | +5 | ad | Dollar amounts, percentages | Dampened when recent program signals present. **v4.3.8**: textFeatures total capped at +12 when recentProgram (45s window). |
+| priceMention | +5 | ad | Dollar amounts, percentages | Dampened when recent program signals present. **v4.3.8**: textFeatures total capped at +12 when recentProgram (45s window). **v4.4.0**: Window extended to 90s + quorum as alternative trigger. |
 | captionLoss | +25 max | ad | No captions for extended period | Strong signal at ad break boundaries |
-| captionBottomed | +10 | ad | Captions positioned at bottom | |
+| captionBottomed | +10 | ad | Captions positioned at bottom | Mild signal — gated by mildGate in v4.4.0 |
+| testimonialAd | +12 | ad | Composite: bottomed + mixed case + no CNBC markers + post-captionLoss | **v4.4.0**: Detects testimonial/conversational ads (Coventry Direct, Blackstone, etc.) |
+| mildGate | 0 | synthetic | Prevents mild-only signals from crossing threshold | **v4.4.0**: Fires when only captionBottomed/shortPunchyLines (+ textFeatures ≤10) are positive. Caps conf to threshold-1. |
 | caseShift (ad) | +28 | ad | ALL CAPS → mixed case transition | Reliable |
 | domAdShowing | +45 | ad | `.ad-showing` class on player | May not work on tv.youtube.com |
 | programAllow | -45 | prog | CNBC show titles, tickers, financial terms | Very strong, overrides most ad signals |
@@ -183,9 +185,10 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 **Pattern**: Quorum persisted across ad breaks, preventing muting.
 **Fix**: 15s freshness requirement + caption loss resets quorum.
 
-### 5. Price on Financial Content (Improved v4.3.8)
+### 5. Price on Financial Content (Improved v4.3.8, v4.4.0)
 **Pattern**: Price mentions (+5) and textFeatures (+25 for price patterns like "$10") fire on CNBC market discussion.
-**Fix**: `priceMention` suppressed when `recentProgram` is set. `textFeatures` capped at +12 when `recentProgram` is set (45s window). Still worth monitoring for edge cases near the window boundary.
+**Fix (v4.3.8)**: `priceMention` suppressed when `recentProgram` is set. `textFeatures` capped at +12 when `recentProgram` is set (45s window).
+**Fix (v4.4.0)**: Extended `recentProgram` window from 45s to 90s. Added `programQuorumCount > 0` as alternative dampening trigger. 9 instances resolved in 17h passive log analysis.
 
 ### 6. ALL CAPS Ads Triggering caseShift→program (Open — 3 sightings)
 **Pattern**: Some ads (Coventry Direct, Shopify-style) use ALL CAPS text identical to CNBC live captions. After captionLoss, caseShift detects ALL CAPS continuity and awards -28 (program signal). Causes 8-11s false negatives.
@@ -198,20 +201,30 @@ Format: same as passive log but with added `"label"` field on each entry (`"ad"`
 **Fix**: `programAllow` override suppressed in decision engine when `brandDetected` also fires on the same evaluation. "Comcast Business" added to brand terms.
 **Verified**: v4.3.9 15:28:07 — Comcast Business bumper had `brandDetected(4) + programAllow(-45)`, reason was PROGRAM_QUORUM_MET (not PROGRAM_CONFIRMED). Fix worked; system muted 11s later on captionBottomed.
 
-### 8. Testimonial-Style Ads Score Low (Open — 3 sightings)
+### 8. Testimonial-Style Ads Score Low (Fixed v4.4.0 — 9 sightings)
 **Pattern**: First/second-person ad copy triggers `conversational(-12)` because it uses pronouns and analytical-adjacent language. No strong ad signals counteract. Net score stays 36-44, well below threshold. Causes 5-18s false negatives.
-**Sightings**: Coventry Direct testimonial (v4.3.7 12:29:03, 35s FN), financial advisory ad (v4.3.9 15:30:20, 18s FN on "Helping you achieve them"), Blackstone ad (v4.3.9 15:43:56, 5s FN on "The best investors see the bigger picture").
-**Suggested fix**: During active ad lock or within 30s of a mute, treat `conversational` as neutral (0) instead of program-leaning. Alternatively, new signal: `captionBottomed` + mixed case + `conversational` together = likely ad testimonial.
+**Sightings**: Coventry Direct testimonial (v4.3.7 12:29:03, 35s FN), financial advisory ad (v4.3.9 15:30:20, 18s FN), Blackstone ad (v4.3.9 15:43:56, 5s FN), plus 6 additional sightings in 17h passive log.
+**Fix (v4.4.0)**: New `testimonialAd` composite signal (+12) detects: mixed case + bottom captions + no CNBC markers (`>>`, anchor names) + within 60s of caption loss return. Simulation: 11 FN removed on labeled data, 43 newly-muted on 17h unlabeled data (all verified as ads).
 
-### 9. "quote" in adContext Matching Editorial Attributions (Open — 2 sightings)
-**Pattern**: `"quote"` in the adContext phrase list matches CNBC editorial attributions ("she said, quote, we expect sequential revenue growth"). Causes sub-second false mute blips, instantly corrected by next caption evaluation.
-**Sightings**: v4.3.9 15:15:35 (conf=66, "QUOTE, WE EXPECT SEQUENTIAL REVENUE GROWTH"), v4.3.9 15:23:58 (conf=66, "QUOTE, I HAVE NEVER SEEN PERFORMANCE LIKE THIS").
-**Suggested fix**: Replace `"quote"` with specific ad phrases: `"get a quote"`, `"free quote"`, `"quote today"`.
+### 9. "quote" in adContext Matching Editorial Attributions (Fixed v4.4.0 — 5 sightings)
+**Pattern**: `"quote"` in the adContext phrase list matches CNBC editorial attributions ("she said, quote, we expect sequential revenue growth"). Causes sub-second false mute blips.
+**Sightings**: 5 total across v4.3.9 passive logs (15:15:35, 15:23:58, plus 3 more in 17h analysis).
+**Fix (v4.4.0)**: Bare `"quote"` removed from adContext. Replaced with `"get a quote"`, `"free quote"`, `"quote today"`, `"quote now"`. 15 entries affected in simulation.
 
-### 10. imperativeVoice on "kicking off" (Open — 1 sighting)
+### 10. imperativeVoice on "kicking off" (Open — 1 sighting, also see #11)
 **Pattern**: "that call kicking off at the top of the hour" triggered `imperativeVoice(8)`. Sub-second false mute, instantly corrected by `anchorName(-28)` on "SEEMA MODY".
 **Sightings**: v4.3.9 15:23:44 only.
 **Suggested fix**: None needed unless it recurs. If persistent, add "kicking off" to an imperative verb exclusion list.
+
+### 11. captionBottomed + shortPunchyLines Alone Trigger Mute (Fixed v4.4.0 — 212 sightings)
+**Pattern**: `captionBottomed(10) + shortPunchyLines(6) = 16` → conf 66, crossing threshold (65). The #1 false-mute combination, responsible for 87% of captionBottomed-associated mutes. Continuous false muting during non-news hours (Shark Tank reruns); brief blips during daytime CNBC.
+**Sightings**: 212 of 244 captionBottomed mutes in 17h passive log (87%).
+**Fix (v4.4.0)**: Mild signal gate — if the only positive-weight signals are from the mild set (`captionBottomed`, `shortPunchyLines`, or `textFeatures` with weight ≤ 10), confidence is capped at threshold-1 (64). Does not override active ad locks. Emits synthetic `mildGate` signal (weight 0) for observability. Simulation: 1,842 entries affected, 1,851 false mutes prevented on 17h data.
+
+### 12. breakCue "stick around" on Program Content (Fixed v4.4.0 — 2 sightings)
+**Pattern**: Bare `"stick around"` in breakPhrases matches conversational usage ("I want to stick around"). Sub-second FP blips.
+**Sightings**: 2 in 17h passive log.
+**Fix (v4.4.0)**: Replaced with `"stick around for"`, `"we'll stick around"`. 1 entry affected in simulation.
 
 ## Regression Test Procedure
 

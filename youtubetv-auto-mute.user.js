@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.3.10: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.4.0: Mild Gate + Testimonial Signal)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.3.10
+// @version      4.4.0
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -197,7 +197,8 @@
       "offer ends","apply now","apply today","sign up","join now",
       "get started","start today","enroll","enrollment","speak to an agent","licensed agent",
       ".com","dot com","call now","call today","call the number","free shipping","save today",
-      "see details","member fdic","not fdic insured","policy","quote",
+      "see details","member fdic","not fdic insured","policy",
+      "get a quote","free quote","quote today","quote now",
       "promo code","use code","discount code","limited supply","while supplies last",
       "satisfaction guaranteed","money-back guarantee","no obligation","risk-free",
       "available at","sold at","find it at","order yours","order now","shop now",
@@ -241,7 +242,7 @@
       "back after this","we'll be right back","we will be right back",
       "stay with us","more after the break","right after this break",
       "the exchange is back after this",
-      "don't go anywhere","stick around","after the break","when we come back",
+      "don't go anywhere","stick around for","we'll stick around","after the break","when we come back",
       "we'll have more after this","quick break","take a quick break","much more ahead",
       "we'll be back in two minutes","we'll be back in just a moment"
     ],
@@ -273,7 +274,7 @@
     ],
   };
 
-  const SETTINGS_KEY='yttp_settings_v4_3_8';
+  const SETTINGS_KEY='yttp_settings_v4_4_0';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -305,6 +306,7 @@
     CASE_SHIFT_PROGRAM: -28,
     SPEAKER_MARKER: -15,
     DOM_AD_SHOWING: 45,
+    TESTIMONIAL_AD: 12,
     CONVERSATIONAL: -12,
     THIRD_PERSON: -8,
     LOCK_FLOOR: 65,
@@ -337,6 +339,7 @@
     noCcConsec: 0,
     bottomConsec: 0,
     programQuorumCount: 0,
+    lastCaptionLossEndMs: 0,
     lastCaptionVisibility: null,
     currentConfidence: 0,
     manualMuteActive: false,
@@ -373,6 +376,7 @@
       this.noCcConsec = 0;
       this.bottomConsec = 0;
       this.programQuorumCount = 0;
+      this.lastCaptionLossEndMs = 0;
       this.lastCaptionVisibility = null;
       this.currentConfidence = 0;
       this.captionWindow = [];
@@ -558,12 +562,12 @@
     if (f.capsRatio > 0.95 && !(_hist.length >= 3 && _avgCaps > 0.85)) { w += WEIGHT.CAPS_HEAVY; parts.push('caps'); }
     if (f.punctDensity > 0.05) { w += WEIGHT.PUNCT_HEAVY; parts.push('punct'); }
     // Suppress price signal on financial news — dollar amounts are normal on CNBC
-    const recentProgram = State.lastStrongProgramMs && (Date.now() - State.lastStrongProgramMs < 45000);
+    const recentProgram = State.lastStrongProgramMs && (Date.now() - State.lastStrongProgramMs < 90000);
     if (f.priceCount > 0) {
       if (!recentProgram) { w += f.priceCount * WEIGHT.PRICE_MENTION; parts.push('price'); }
     }
     // Cap total textFeatures weight during confirmed program content
-    if (recentProgram && w > 12) { w = 12; parts.push('dampened'); }
+    if ((recentProgram || State.programQuorumCount > 0) && w > 12) { w = 12; parts.push('dampened'); }
     return w > 0 ? { weight: w, label: 'Text features: ' + parts.join('+'), match: null } : null;
   });
 
@@ -612,6 +616,16 @@
     if (!env.captionsBottomed) { State.bottomConsec = 0; return null; }
     State.bottomConsec++;
     return State.bottomConsec >= 2 ? { weight: WEIGHT.CAPTION_BOTTOMED, label: 'Bottom captions', match: null } : null;
+  });
+
+  SignalCollector.register('testimonialAd', (text, env) => {
+    if (!env.captionsBottomed) return null;
+    if (env.textFeatures.capsRatio >= 0.85) return null;
+    if (!State.lastCaptionLossEndMs || Date.now() - State.lastCaptionLossEndMs > 60000) return null;
+    const windowText = State.captionWindow.join(' ');
+    if (windowText.includes('>>')) return null;
+    if (PhraseIndex.match('anchor', windowText)) return null;
+    return { weight: WEIGHT.TESTIMONIAL_AD, label: 'Testimonial ad pattern', match: null };
   });
 
   // --- Program-leaning signals ---
@@ -1046,7 +1060,7 @@
       _passiveFlushTimer = null;
       if (_passiveDirty) {
         kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.10' });
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.0' });
         _passiveDirty = false;
       }
     }, 10000);
@@ -1098,7 +1112,7 @@
       .filter(r => r.event === 'boundary')
       .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
     const report = {
-      version: '4.3.10',
+      version: '4.4.0',
       format: 'passive_log',
       sessionStart: new Date(State.passiveSessionStart).toISOString(),
       savedAt: new Date().toISOString(),
@@ -1292,6 +1306,10 @@
     // DOM probe: check if player has ad-showing class (works on youtube.com, may work on tv.youtube.com)
     const domAdShowing = !!document.querySelector('.html5-video-player.ad-showing');
 
+    // Track when captions return after a captionLoss period (for testimonialAd signal)
+    // Must happen BEFORE collectAll() because captionLoss handler resets noCcConsec
+    if (captionsExist && State.noCcConsec > 0) State.lastCaptionLossEndMs = Date.now();
+
     const env = { captionsExist, captionsBottomed, noCcMs, textFeatures, imperativeScore, conversationalScore, guestIntroDetected, guestIntroMatch, domAdShowing };
 
     // Collect signals from latest line
@@ -1320,6 +1338,17 @@
       const halved = Math.round(signals[csIdx].weight / 2);
       signals[csIdx] = { ...signals[csIdx], weight: halved, label: signals[csIdx].label + ' (dampened)' };
       confidence = calculateConfidence(signals);
+    }
+
+    // Mild signal gate: prevent mild-only signals from crossing threshold
+    const MILD_SOURCES = new Set(['captionBottomed', 'shortPunchyLines']);
+    const positiveSignals = signals.filter(s => s.weight > 0);
+    const allMild = positiveSignals.length > 0 && positiveSignals.every(s =>
+      MILD_SOURCES.has(s.source) || (s.source === 'textFeatures' && s.weight <= 10)
+    );
+    if (allMild && confidence >= S.confidenceThreshold && !(t < State.adLockUntil)) {
+      confidence = S.confidenceThreshold - 1;
+      signals.push({ source: 'mildGate', weight: 0, label: 'Mild gate active', match: null });
     }
 
     // Clear stale window on break cue to prevent lingering program phrases
@@ -1755,7 +1784,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.3.10',
+      version: '4.4.0',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1945,7 +1974,7 @@
 
     panel.innerHTML = _html(`
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.10 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.4.0 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -2050,7 +2079,7 @@
       State.passiveSessionStart = Date.now();
       State.passiveLog = [];
     }
-    passiveEvent('session_start', { version: '4.3.10', url: location.href });
+    passiveEvent('session_start', { version: '4.4.0', url: location.href });
     schedulePassiveFlush();
   }
   startPassiveSaveTimer();
@@ -2060,9 +2089,9 @@
     if (S.passiveLogging) {
       passiveEvent('session_end');
       kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.10' });
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.0' });
       passiveAutoSave();
     }
   });
-  log('Booted v4.3.10',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.4.0',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
