@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.3.9: Signal Aggregation)
+// @name         YTTV Auto-Mute (v4.3.10: Signal Aggregation)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.3.9
+// @version      4.3.10
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -34,6 +34,11 @@
   Object.assign(NS,{intervalId:null,ccAttachTimer:null,ccObserver:null,
     hudEl:null,panelEl:null,hudText:'',hudTimer:null,hudAnimTimer:null,
     flagBtn:null,btnContainer:null,settingsBtn:null,muteBtn:null,tuningBtn:null,softFlagBtn:null,addMinBtn:null,_lastUrl:location.href});
+
+  /* ---------- TRUSTED TYPES POLICY ---------- */
+  let _ttPolicy;
+  try { _ttPolicy = (typeof trustedTypes!=='undefined'&&trustedTypes.createPolicy) ? trustedTypes.createPolicy('yttp',{createHTML:s=>s}) : null; } catch(e){ _ttPolicy=null; }
+  function _html(s){ return _ttPolicy ? _ttPolicy.createHTML(s) : s; }
 
   /* ---------- STORAGE SHIMS ---------- */
   const hasGM_get = typeof GM_getValue==='function';
@@ -802,7 +807,7 @@
     NS.hudEl.style.whiteSpace = 'normal';
     NS.hudEl.style.maxWidth = '420px';
     const thr = parseInt(S.confidenceThreshold, 10) || 65;
-    NS.hudEl.innerHTML =
+    NS.hudEl.innerHTML = _html(
       `<div style="display:flex;align-items:center;gap:4px;white-space:nowrap;">` +
         `<span id="yttp-hud-status" style="font-weight:600"></span>` +
         `<span style="color:#aaa;">·</span><span id="yttp-hud-reason"></span>` +
@@ -814,7 +819,7 @@
         `<input type="number" id="yttp-threshold-number" min="0" max="100" value="${thr}" style="width:42px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;padding:1px 3px;font-size:10px;text-align:center;pointer-events:auto;">` +
         `<span style="color:#888;font-size:10px;">%</span>` +
       `</div>` +
-      `<div id="yttp-hud-signals" style="color:#888;font-size:10px;margin-top:2px;white-space:nowrap;"></div>`;
+      `<div id="yttp-hud-signals" style="color:#888;font-size:10px;margin-top:2px;white-space:nowrap;"></div>`);
     _hudRefs.status = NS.hudEl.querySelector('#yttp-hud-status');
     _hudRefs.reason = NS.hudEl.querySelector('#yttp-hud-reason');
     _hudRefs.meter = NS.hudEl.querySelector('#yttp-hud-meter');
@@ -876,15 +881,15 @@
         }
 
         const labelColor = aboveThr ? '#ff4444' : '#cccccc';
-        _hudRefs.meter.innerHTML =
+        _hudRefs.meter.innerHTML = _html(
           '<span style="color:#aaa">' + safePart + '</span>' +
           '<span style="color:#00cccc">\u2502</span>' +
           '<span style="color:' + (aboveThr ? '#ff4444' : '#555') + '">' + dangerPart + '</span>' +
           '<span style="color:' + labelColor + '"> ' + confidence + '/' + thr + '</span>' +
-          (suffix ? '<span style="color:#888">' + suffix + '</span>' : '');
+          (suffix ? '<span style="color:#888">' + suffix + '</span>' : ''));
       } else {
         const labelColor = aboveThr ? '#ff4444' : '#cccccc';
-        _hudRefs.meter.innerHTML = '<span style="color:' + labelColor + '">' + confidence + '/' + thr + '</span>';
+        _hudRefs.meter.innerHTML = _html('<span style="color:' + labelColor + '">' + confidence + '/' + thr + '</span>');
       }
       _hudRefs.meter.style.display = '';
     } else if (_hudRefs.meter) {
@@ -1041,7 +1046,7 @@
       _passiveFlushTimer = null;
       if (_passiveDirty) {
         kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.9' });
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.10' });
         _passiveDirty = false;
       }
     }, 10000);
@@ -1093,7 +1098,7 @@
       .filter(r => r.event === 'boundary')
       .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
     const report = {
-      version: '4.3.9',
+      version: '4.3.10',
       format: 'passive_log',
       sessionStart: new Date(State.passiveSessionStart).toISOString(),
       savedAt: new Date().toISOString(),
@@ -1700,7 +1705,7 @@
     const fpCount = flags.filter(f => f.action === 'FALSE_POSITIVE').length;
     const fnCount = flags.filter(f => f.action === 'FALSE_NEGATIVE').length;
     const dlgBtn = 'background:#1f6feb;border:none;color:#fff;padding:8px 14px;border-radius:7px;cursor:pointer;font:13px system-ui,sans-serif';
-    dialog.innerHTML =
+    dialog.innerHTML = _html(
       '<div style="font-weight:700;font-size:16px;margin-bottom:12px;">Tuning Session Complete</div>' +
       '<div style="background:#0d1117;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;line-height:1.8;">' +
         '<div>Duration: <b>' + Math.floor(durationSec / 60) + 'm ' + (durationSec % 60) + 's</b></div>' +
@@ -1727,7 +1732,7 @@
       '<div style="display:flex;gap:8px;">' +
         '<button id="yttp-tuning-dl" style="' + dlgBtn + '">Download Report</button>' +
         '<button id="yttp-tuning-close" style="' + dlgBtn + ';background:#444">Close</button>' +
-      '</div>';
+      '</div>');
     overlay.appendChild(dialog);
     document.documentElement.appendChild(overlay);
     const dlBtn = dialog.querySelector('#yttp-tuning-dl');
@@ -1750,7 +1755,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.3.9',
+      version: '4.3.10',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -1938,16 +1943,16 @@
       `<div class="yttp-tab-content" data-tab="${tn}" style="padding:12px;display:${i===0?'grid':'none'};gap:12px;">${tabContent[tn]}</div>`
     ).join('');
 
-    panel.innerHTML = `
+    panel.innerHTML = _html(`
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.9 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.3.10 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
         </div>
       </div>
       <div style="display:flex;border-bottom:1px solid #333;background:#0d1117;">${tabBar}</div>
-      <div style="overflow:auto;flex:1;">${tabPanels}</div>`;
+      <div style="overflow:auto;flex:1;">${tabPanels}</div>`);
     document.documentElement.appendChild(panel);
 
     // Tab switching
@@ -2045,7 +2050,7 @@
       State.passiveSessionStart = Date.now();
       State.passiveLog = [];
     }
-    passiveEvent('session_start', { version: '4.3.9', url: location.href });
+    passiveEvent('session_start', { version: '4.3.10', url: location.href });
     schedulePassiveFlush();
   }
   startPassiveSaveTimer();
@@ -2055,9 +2060,9 @@
     if (S.passiveLogging) {
       passiveEvent('session_end');
       kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.9' });
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.3.10' });
       passiveAutoSave();
     }
   });
-  log('Booted v4.3.9',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.3.10',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
