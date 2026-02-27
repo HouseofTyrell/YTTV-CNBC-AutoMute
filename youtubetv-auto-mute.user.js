@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.4.2: CaptionLoss AdLock)
+// @name         YTTV Auto-Mute (v4.4.3: VolumeRamp+AdContext)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.4.2
+// @version      4.4.3
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -123,7 +123,7 @@
     manualOverrideMs:8000,
 
     captionWindowSize:5,     // Number of recent caption lines to keep
-    volumeRampMs:1500,       // Volume ramp duration on unmute (0 = instant)
+    volumeRampMs:3000,       // Volume ramp duration on unmute (0 = instant)
     tuningDurationMs:300000, // Tuning session length (5 min default)
 
     captionLogLimit:8000,
@@ -204,7 +204,8 @@
       "available at","sold at","find it at","order yours","order now","shop now",
       "for more information","available now","now available","act now","don't wait",
       "official sponsor","proud sponsor","proud partner","as seen on",
-      "prospectus","gps voice","rerouting"
+      "prospectus","gps voice","rerouting",
+      "life insurance","qualify"
     ].join('\n'),
 
     ctaTerms: ["apply","sign up","join now","call us","visit","learn more","enroll","enrollment","get started","download","claim","see details","speak to an agent","licensed agent"],
@@ -274,7 +275,7 @@
     ],
   };
 
-  const SETTINGS_KEY='yttp_settings_v4_4_0';
+  const SETTINGS_KEY='yttp_settings_v4_4_3';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -1076,7 +1077,7 @@
       _passiveFlushTimer = null;
       if (_passiveDirty) {
         kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.2' });
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.3' });
         _passiveDirty = false;
       }
     }, 10000);
@@ -1128,7 +1129,7 @@
       .filter(r => r.event === 'boundary')
       .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
     const report = {
-      version: '4.4.2',
+      version: '4.4.3',
       format: 'passive_log',
       sessionStart: new Date(State.passiveSessionStart).toISOString(),
       savedAt: new Date().toISOString(),
@@ -1146,7 +1147,7 @@
     const pad = n => String(n).padStart(2, '0');
     const d = new Date(State.passiveSessionStart);
     const n = new Date();
-    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}.json`;
+    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}_v4.4.3.json`;
     downloadText(name, JSON.stringify(report, null, 2));
     log('Passive log auto-saved:', name, `(${State.passiveLog.length} entries)`);
   }
@@ -1822,7 +1823,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.4.2',
+      version: '4.4.3',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -2012,7 +2013,7 @@
 
     panel.innerHTML = _html(`
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.4.2 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.4.3 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -2117,7 +2118,7 @@
       State.passiveSessionStart = Date.now();
       State.passiveLog = [];
     }
-    passiveEvent('session_start', { version: '4.4.2', url: location.href });
+    passiveEvent('session_start', { version: '4.4.3', url: location.href });
     schedulePassiveFlush();
   }
   startPassiveSaveTimer();
@@ -2127,9 +2128,9 @@
     if (S.passiveLogging) {
       passiveEvent('session_end');
       kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.2' });
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.3' });
       passiveAutoSave();
     }
   });
-  log('Booted v4.4.2',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.4.3',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
