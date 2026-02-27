@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.4.3: VolumeRamp+AdContext)
+// @name         YTTV Auto-Mute (v4.4.4: PersistMute+AdLockBreak)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.4.3
+// @version      4.4.4
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -276,6 +276,7 @@
   };
 
   const SETTINGS_KEY='yttp_settings_v4_4_3';
+  const MUTE_PERSIST_KEY='yttp_mute_persist';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
   let S=loadSettings();
@@ -741,7 +742,25 @@
       State.adLockUntil = Math.max(State.adLockUntil, t + S.minAdLockMs);
     }
 
-    const lockActive = t < State.adLockUntil;
+    let lockActive = t < State.adLockUntil;
+
+    // Strong program signal breaks adLock — speakerMarker/anchorName/caseShift(program)
+    // are reliable program-only indicators; if confidence is below threshold, release the lock
+    if (lockActive && !meetsThreshold) {
+      const programBreak = signalResults.some(s =>
+        s.source === 'speakerMarker' ||
+        s.source === 'anchorName' ||
+        (s.source === 'caseShift' && s.weight < 0)
+      );
+      if (programBreak) {
+        State.adLockUntil = 0;
+        State.programVotes = S.programVotesNeeded;
+        State.programQuorumCount = S.programQuorumLines;
+        lockActive = false;
+        if (State.manualMuteActive) return { shouldMute: true, reason: 'MANUAL_MUTE', virtualReason: 'PROGRAM_CONFIRMED' };
+        return { shouldMute: false, reason: 'PROGRAM_CONFIRMED' };
+      }
+    }
 
     // Strong program signal: anchor, allow, segment, guest intro (not conversational at -8)
     // Exclude suppressed programAllow from counting as strong program signal
@@ -1077,7 +1096,7 @@
       _passiveFlushTimer = null;
       if (_passiveDirty) {
         kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.3' });
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.4' });
         _passiveDirty = false;
       }
     }, 10000);
@@ -1129,7 +1148,7 @@
       .filter(r => r.event === 'boundary')
       .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
     const report = {
-      version: '4.4.3',
+      version: '4.4.4',
       format: 'passive_log',
       sessionStart: new Date(State.passiveSessionStart).toISOString(),
       savedAt: new Date().toISOString(),
@@ -1147,7 +1166,7 @@
     const pad = n => String(n).padStart(2, '0');
     const d = new Date(State.passiveSessionStart);
     const n = new Date();
-    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}_v4.4.3.json`;
+    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}_v4.4.4.json`;
     downloadText(name, JSON.stringify(report, null, 2));
     log('Passive log auto-saved:', name, `(${State.passiveLog.length} entries)`);
   }
@@ -1253,6 +1272,7 @@
       else if(S.showHUD) hudFadeTo(true);
     }
     State.lastMuteState=shouldMute;
+    if(changed) kvSet(MUTE_PERSIST_KEY, { muted: shouldMute, t: Date.now() });
 
     let statusPrefix = State.manualMuteActive ? '[MANUAL MUTE] ' : (State.enabled?'':'[PAUSED] ');
     if (State.tuningActive) {
@@ -1823,7 +1843,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.4.3',
+      version: '4.4.4',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -2013,7 +2033,7 @@
 
     panel.innerHTML = _html(`
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.4.3 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.4.4 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -2108,6 +2128,17 @@
 
   /* ---------- BOOT ---------- */
   applySettings(false);
+
+  // Restore mute state across page reloads — prevents unmuted ads on restart
+  const _persistedMute = kvGet(MUTE_PERSIST_KEY, null);
+  if (_persistedMute && _persistedMute.muted && (Date.now() - _persistedMute.t < 300000)) {
+    State.lastMuteState = true;
+    State.adLockUntil = Date.now() + 30000;
+    const _bootVideo = document.querySelector('video');
+    if (_bootVideo) { if (S.useTrueMute) _bootVideo.muted = true; else _bootVideo.volume = 0.01; }
+    log('Restored muted state from prior session');
+  }
+
   startLoop();
 
   // Passive logging session start
@@ -2118,19 +2149,20 @@
       State.passiveSessionStart = Date.now();
       State.passiveLog = [];
     }
-    passiveEvent('session_start', { version: '4.4.3', url: location.href });
+    passiveEvent('session_start', { version: '4.4.4', url: location.href });
     schedulePassiveFlush();
   }
   startPassiveSaveTimer();
 
   window.addEventListener('beforeunload', () => {
+    kvSet(MUTE_PERSIST_KEY, { muted: State.lastMuteState === true, t: Date.now() });
     if (_logDirty) { kvSet(CAPLOG_KEY, window._captions_log); _logDirty = false; }
     if (S.passiveLogging) {
       passiveEvent('session_end');
       kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.3' });
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.4.4' });
       passiveAutoSave();
     }
   });
-  log('Booted v4.4.3',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.4.4',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
