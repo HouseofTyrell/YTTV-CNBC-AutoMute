@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.5.0: SignalTuning+Watchdog+ReMute)
+// @name         YTTV Auto-Mute (v4.5.1: RemoveVisitImperative+BootGrace)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.5.0
+// @version      4.5.1
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -346,6 +346,8 @@
     lastCaptionVisibility: null,
     currentConfidence: 0,
     manualMuteActive: false,
+    lastTickMs: 0,
+    bootGraceUntil: 0,
     captionWindow: [],
     lastSignals: [],
     recentCapsRatios: [],  // last N capsRatios for case shift detection
@@ -442,7 +444,7 @@
 
   /* ---------- TEXT ANALYZER CONSTANTS ---------- */
   const _PRONOUNS = new Set(['you', 'your', "you're", 'yourself']);
-  const _IMPERATIVES = new Set(['get', 'call', 'visit', 'ask', 'switch', 'start', 'save', 'protect', 'discover', 'order', 'apply', 'enroll', 'join', 'claim']);
+  const _IMPERATIVES = new Set(['get', 'call', 'ask', 'switch', 'start', 'save', 'protect', 'discover', 'order', 'apply', 'enroll', 'join', 'claim']);
   const _THIRD_PERSON = new Set(['they', 'their', 'them', 'analysts', 'investors']);
   const _ANALYTICAL = new Set(['reported', 'expects', 'estimates', 'revenue', 'growth', 'decline', 'forecast', 'quarter', 'consensus', 'guidance',
     'earnings', 'economy', 'inflation', 'equities', 'market', 'stocks', 'rates', 'yields', 'fiscal', 'tariffs', 'monetary', 'cyclical', 'sector']);
@@ -609,6 +611,7 @@
 
   SignalCollector.register('captionLoss', (text, env) => {
     if (env.captionsExist) { State.noCcConsec = 0; return null; }
+    if (Date.now() < State.bootGraceUntil) return null; // Suppress during boot/tab-wake grace period
     State.noCcConsec++;
     if (env.noCcMs < S.muteOnNoCCDelayMs || State.noCcConsec < S.noCcHitsToMute) return null;
     const w = Math.min(WEIGHT.CAPTION_LOSS_MAX, Math.round(env.noCcMs / 400));
@@ -1108,7 +1111,7 @@
       _passiveFlushTimer = null;
       if (_passiveDirty) {
         kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.0' });
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.1' });
         _passiveDirty = false;
       }
     }, 10000);
@@ -1160,7 +1163,7 @@
       .filter(r => r.event === 'boundary')
       .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
     const report = {
-      version: '4.5.0',
+      version: '4.5.1',
       format: 'passive_log',
       sessionStart: new Date(State.passiveSessionStart).toISOString(),
       savedAt: new Date().toISOString(),
@@ -1178,7 +1181,7 @@
     const pad = n => String(n).padStart(2, '0');
     const d = new Date(State.passiveSessionStart);
     const n = new Date();
-    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}_v4.5.0.json`;
+    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}_v4.5.1.json`;
     downloadText(name, JSON.stringify(report, null, 2));
     log('Passive log auto-saved:', name, `(${State.passiveLog.length} entries)`);
   }
@@ -1522,6 +1525,14 @@
       State.reset(false);
       attachVideoWatchdog(video);
     }
+
+    // Detect fresh boot or tab wake-up — suppress captionLoss to prevent chatter
+    const _now = Date.now();
+    if (State.lastTickMs === 0 || (_now - State.lastTickMs) > 30000) {
+      State.bootGraceUntil = _now + 15000;
+      if (State.lastTickMs > 0) log('Tab wake detected — captionLoss suppressed for 15s');
+    }
+    State.lastTickMs = _now;
 
     let ccText='',captionsExist=false,captionsBottomed=false;
     if(captionWindow){
@@ -1907,7 +1918,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.5.0',
+      version: '4.5.1',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -2097,7 +2108,7 @@
 
     panel.innerHTML = _html(`
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.5.0 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.5.1 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -2213,7 +2224,7 @@
       State.passiveSessionStart = Date.now();
       State.passiveLog = [];
     }
-    passiveEvent('session_start', { version: '4.5.0', url: location.href });
+    passiveEvent('session_start', { version: '4.5.1', url: location.href });
     schedulePassiveFlush();
   }
   startPassiveSaveTimer();
@@ -2224,9 +2235,9 @@
     if (S.passiveLogging) {
       passiveEvent('session_end');
       kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.0' });
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.1' });
       passiveAutoSave();
     }
   });
-  log('Booted v4.5.0',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.5.1',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
