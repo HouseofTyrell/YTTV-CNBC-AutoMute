@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.5.1: RemoveVisitImperative+BootGrace)
+// @name         YTTV Auto-Mute (v4.5.2: CaptionGapReturn)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.5.1
+// @version      4.5.2
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -348,6 +348,8 @@
     manualMuteActive: false,
     lastTickMs: 0,
     bootGraceUntil: 0,
+    captionReturnBoostUntil: 0,
+    lastCaptionGapMs: 0,
     captionWindow: [],
     lastSignals: [],
     recentCapsRatios: [],  // last N capsRatios for case shift detection
@@ -616,6 +618,16 @@
     if (env.noCcMs < S.muteOnNoCCDelayMs || State.noCcConsec < S.noCcHitsToMute) return null;
     const w = Math.min(WEIGHT.CAPTION_LOSS_MAX, Math.round(env.noCcMs / 400));
     return { weight: w, label: 'Caption loss', match: `noCcMs=${env.noCcMs}` };
+  });
+
+  // Caption gap return — boosts confidence when captions reappear after a 1s+ gap.
+  // Fills the dead zone before captionLoss fires (2.5s gate), cutting mute latency by ~1-1.5s.
+  SignalCollector.register('captionGapReturn', (text, env) => {
+    if (!text) return null;
+    const now = Date.now();
+    if (now > State.captionReturnBoostUntil) return null;
+    if (now < State.bootGraceUntil) return null;
+    return { weight: 8, label: 'Caption gap return', match: `gap=${State.lastCaptionGapMs}ms` };
   });
 
   SignalCollector.register('captionBottomed', (text, env) => {
@@ -1111,7 +1123,7 @@
       _passiveFlushTimer = null;
       if (_passiveDirty) {
         kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.1' });
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.2' });
         _passiveDirty = false;
       }
     }, 10000);
@@ -1163,7 +1175,7 @@
       .filter(r => r.event === 'boundary')
       .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
     const report = {
-      version: '4.5.1',
+      version: '4.5.2',
       format: 'passive_log',
       sessionStart: new Date(State.passiveSessionStart).toISOString(),
       savedAt: new Date().toISOString(),
@@ -1181,7 +1193,7 @@
     const pad = n => String(n).padStart(2, '0');
     const d = new Date(State.passiveSessionStart);
     const n = new Date();
-    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}_v4.5.1.json`;
+    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}_v4.5.2.json`;
     downloadText(name, JSON.stringify(report, null, 2));
     log('Passive log auto-saved:', name, `(${State.passiveLog.length} entries)`);
   }
@@ -1376,6 +1388,16 @@
 
   function evaluate(video, ccText, captionsExist, captionsBottomed) {
     const t = Date.now();
+
+    // Caption gap transition — detect when captions return after a meaningful gap (>=1s).
+    // Sets a 2s boost window so the first ad captions get +8 confidence,
+    // filling the dead zone before captionLoss fires at 2.5s.
+    const captionGapMs = (captionsExist && State.lastCcSeenMs > 0) ? (t - State.lastCcSeenMs) : 0;
+    if (captionGapMs >= 1000) {
+      State.captionReturnBoostUntil = t + 2000;
+      State.lastCaptionGapMs = captionGapMs;
+    }
+
     if (captionsExist) State.lastCcSeenMs = t;
     const noCcMs = t - State.lastCcSeenMs;
 
@@ -1918,7 +1940,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.5.1',
+      version: '4.5.2',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -2108,7 +2130,7 @@
 
     panel.innerHTML = _html(`
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.5.1 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.5.2 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -2224,7 +2246,7 @@
       State.passiveSessionStart = Date.now();
       State.passiveLog = [];
     }
-    passiveEvent('session_start', { version: '4.5.1', url: location.href });
+    passiveEvent('session_start', { version: '4.5.2', url: location.href });
     schedulePassiveFlush();
   }
   startPassiveSaveTimer();
@@ -2235,9 +2257,9 @@
     if (S.passiveLogging) {
       passiveEvent('session_end');
       kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.1' });
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.2' });
       passiveAutoSave();
     }
   });
-  log('Booted v4.5.1',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.5.2',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
