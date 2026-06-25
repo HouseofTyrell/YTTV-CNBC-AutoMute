@@ -1,5 +1,9 @@
 # YTTV Auto-Mute
 
+![Status: Experimental](https://img.shields.io/badge/status-experimental-orange) ![Type: Userscript](https://img.shields.io/badge/type-userscript-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
+> ⚠️ **Experimental:** This script relies on YouTube TV’s DOM structure and live-caption format. YouTube TV can change these at any time, which may break detection until the script is updated. If it stops muting correctly, see [Troubleshooting](#troubleshooting).
+
 A Tampermonkey/Greasemonkey userscript that automatically mutes advertisements on YouTube TV using signal-aggregation confidence scoring.
 
 ## Overview
@@ -230,6 +234,7 @@ Enable in settings:
 2. Check browser console for errors (F12)
 3. Verify userscript manager is active and script is enabled
 4. Try reloading the page
+- YouTube TV may have changed its page layout or caption format — check this repo for an updated script version
 
 ### Too Many False Positives (Muting During Shows)
 
