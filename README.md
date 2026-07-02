@@ -10,6 +10,16 @@ A Tampermonkey/Greasemonkey userscript that automatically mutes advertisements o
 
 This userscript intelligently detects when ads are playing on YouTube TV (primarily targeting CNBC and financial news channels) and automatically mutes them. It uses a **signal-aggregation confidence system** where 21+ weighted signals (ad-leaning and program-leaning) feed a 0-100 confidence meter — no single signal can trigger a mute on its own.
 
+## Screenshots
+
+The on-screen HUD shows live mute state, the program/ad confidence meter, and the top contributing signals:
+
+![HUD](docs/hud.png)
+
+A data-driven settings panel exposes every detection parameter, hotkey, phrase list, and the tuning and logging tools:
+
+![Settings panel](docs/settings.png)
+
 ## Features
 
 - **Signal-Aggregation Confidence Scoring**: 21+ independent signals contribute weighted scores to a 0-100 confidence meter. Muting only occurs when the aggregate confidence exceeds a configurable threshold (default: 65).
