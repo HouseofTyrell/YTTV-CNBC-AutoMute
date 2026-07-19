@@ -2,6 +2,8 @@
 
 ![Status: Experimental](https://img.shields.io/badge/status-experimental-orange) ![Type: Userscript](https://img.shields.io/badge/type-userscript-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
+[Install userscript](https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js) · [View source](youtubetv-auto-mute.user.js)
+
 > ⚠️ **Experimental:** This script relies on YouTube TV’s DOM structure and live-caption format. YouTube TV can change these at any time, which may break detection until the script is updated. If it stops muting correctly, see [Troubleshooting](#troubleshooting).
 
 A Tampermonkey/Greasemonkey userscript that automatically mutes advertisements on YouTube TV using signal-aggregation confidence scoring.
@@ -280,7 +282,7 @@ Enable in settings:
 
 ## License
 
-MIT License - See script header for details
+MIT — see [LICENSE](LICENSE).
 
 ## Contributing
 
@@ -296,5 +298,4 @@ Developed for CNBC and financial news viewers on YouTube TV. Optimized for finan
 
 ---
 
-**Version**: 4.3.9
-**Last Updated**: 2026-02-25
+**Current script version**: 4.5.2
