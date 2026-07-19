@@ -18,7 +18,7 @@ This userscript intelligently detects when ads are playing on YouTube TV (primar
 - **Active Tuning Session**: Timed 5-minute diagnostic workflow with signal snapshots, active flagging, post-session questionnaire, and downloadable JSON report.
 - **Ad Lock Mechanism**: Maintains mute for 45 seconds (configurable) during commercial breaks with a decaying floor to prevent rapid toggling.
 - **Program Quorum System**: Requires consecutive program-leaning captions before unmuting to avoid false positives.
-- **Manual Mute Override**: Toggle persistent mute independently of the auto-mute system (e.g., during meetings).
+- **Manual Mute Override**: Toggle persistent mute independently of the auto-mute system; the choice survives page refreshes (e.g., during meetings).
 - **Structured Feedback System**: Flag false positives/negatives with full signal breakdown capture for analysis and weight tuning.
 - **Volume Ramping**: Smooth ease-in volume ramp on unmute (1.5s default, configurable) instead of jarring instant unmute.
 - **Visual HUD**: On-screen display with confidence meter, threshold slider, signal breakdown, and mute status.

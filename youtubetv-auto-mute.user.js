@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YTTV Auto-Mute (v4.5.2: CaptionGapReturn)
+// @name         YTTV Auto-Mute (v4.5.3: PersistedManualMute)
 // @namespace    http://tampermonkey.net/
 // @description  Auto-mute ads on YouTube TV using signal-aggregation confidence scoring. 18 weighted signals (ad + program leaning) feed a 0-100 confidence meter — no single signal triggers a mute. Guest intro detection, imperative voice analysis, brand suppression, PhraseIndex with compiled regex, HUD with signal breakdown.
-// @version      4.5.2
+// @version      4.5.3
 // @updateURL    https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @downloadURL  https://raw.githubusercontent.com/HouseofTyrell/YTTV-CNBC-AutoMute/main/youtubetv-auto-mute.user.js
 // @match        https://tv.youtube.com/watch/*
@@ -277,6 +277,7 @@
   };
 
   const SETTINGS_KEY='yttp_settings_v4_5_0';
+  const MANUAL_MUTE_PERSIST_KEY='yttp_manual_mute';
   const MUTE_PERSIST_KEY='yttp_mute_persist';
   const loadSettings=()=>({...DEFAULTS,...(kvGet(SETTINGS_KEY,{}) )});
   const saveSettings=(s)=>kvSet(SETTINGS_KEY,s);
@@ -345,7 +346,7 @@
     lastCaptionLossEndMs: 0,
     lastCaptionVisibility: null,
     currentConfidence: 0,
-    manualMuteActive: false,
+    manualMuteActive: kvGet(MANUAL_MUTE_PERSIST_KEY, false) === true,
     lastTickMs: 0,
     bootGraceUntil: 0,
     captionReturnBoostUntil: 0,
@@ -1008,16 +1009,17 @@
   function ensureManualMuteButton(){
     if(NS.muteBtn)return;
     const btn=document.createElement('button');
-    btn.textContent='🔇';
-    btn.title='Manual Mute Toggle';
+    btn.textContent = State.manualMuteActive ? '🔇' : '🔊';
+    btn.title = State.manualMuteActive ? 'Manual Mute Active (Click to Unmute)' : 'Manual Mute Toggle';
     btn.style.cssText=[
       'position:fixed','right:128px','top:12px','z-index:2147483647',
-      'background:#444','color:#fff','border:none','border-radius:8px',
+      `background:${State.manualMuteActive ? '#8b0000' : '#444'}`,'color:#fff','border:none','border-radius:8px',
       'padding:8px 12px','font:16px/1 system-ui,sans-serif',
       'box-shadow:0 6px 18px rgba(0,0,0,.3)','cursor:pointer','pointer-events:auto'
     ].join(';');
     btn.addEventListener('click',()=>{
       State.manualMuteActive = !State.manualMuteActive;
+      kvSet(MANUAL_MUTE_PERSIST_KEY, State.manualMuteActive);
       btn.textContent = State.manualMuteActive ? '🔇' : '🔊';
       btn.style.background = State.manualMuteActive ? '#8b0000' : '#444';
       btn.title = State.manualMuteActive ? 'Manual Mute Active (Click to Unmute)' : 'Manual Mute Toggle';
@@ -1123,7 +1125,7 @@
       _passiveFlushTimer = null;
       if (_passiveDirty) {
         kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.2' });
+        kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.3' });
         _passiveDirty = false;
       }
     }, 10000);
@@ -1175,7 +1177,7 @@
       .filter(r => r.event === 'boundary')
       .map(r => ({ type: r.type, t: r.t, trigger: r.trigger }));
     const report = {
-      version: '4.5.2',
+      version: '4.5.3',
       format: 'passive_log',
       sessionStart: new Date(State.passiveSessionStart).toISOString(),
       savedAt: new Date().toISOString(),
@@ -1193,7 +1195,7 @@
     const pad = n => String(n).padStart(2, '0');
     const d = new Date(State.passiveSessionStart);
     const n = new Date();
-    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}_v4.5.2.json`;
+    const name = `yttp_passive_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}-${pad(n.getHours())}${pad(n.getMinutes())}_v4.5.3.json`;
     downloadText(name, JSON.stringify(report, null, 2));
     log('Passive log auto-saved:', name, `(${State.passiveLog.length} entries)`);
   }
@@ -1940,7 +1942,7 @@
     const flags = State.tuningFlags;
     const mutedCount = snaps.filter(s => s.muted).length;
     const report = {
-      version: '4.5.2',
+      version: '4.5.3',
       reportType: 'tuning_session',
       sessionId: 'tuning-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19),
       startTime: new Date(State.tuningStartMs).toISOString(),
@@ -2130,7 +2132,7 @@
 
     panel.innerHTML = _html(`
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #333;">
-        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.5.2 — Settings</div>
+        <div style="font-weight:600;font-size:14px;">YTTV Auto-Mute v4.5.3 — Settings</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button id="yttp-save" style="${btnS}">Save & Apply</button>
           <button id="yttp-close" style="${btnS};background:#444">Close</button>
@@ -2246,7 +2248,7 @@
       State.passiveSessionStart = Date.now();
       State.passiveLog = [];
     }
-    passiveEvent('session_start', { version: '4.5.2', url: location.href });
+    passiveEvent('session_start', { version: '4.5.3', url: location.href });
     schedulePassiveFlush();
   }
   startPassiveSaveTimer();
@@ -2257,9 +2259,9 @@
     if (S.passiveLogging) {
       passiveEvent('session_end');
       kvSet(PASSIVE_LOG_KEY, State.passiveLog);
-      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.2' });
+      kvSet(PASSIVE_META_KEY, { sessionStart: State.passiveSessionStart, version: '4.5.3' });
       passiveAutoSave();
     }
   });
-  log('Booted v4.5.2',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
+  log('Booted v4.5.3',{signals:SignalCollector.signals.length,phraseCategories:Object.keys(PhraseIndex.lists).length,confidenceThreshold:S.confidenceThreshold,hideCaptions:S.hideCaptions,confidenceMeter:S.showConfidenceMeter,hudSlider:S.showHudSlider});
 })();
